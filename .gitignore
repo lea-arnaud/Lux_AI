@@ -1,3 +1,7 @@
+# Not from the template
+.vs
+build-solution-x64
+
 # Prerequisites
 *.d
 
