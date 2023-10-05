@@ -2,6 +2,7 @@
 #define agent_h
 
 #include "lux/kit.hpp"
+#include "command_chain.h"
 
 namespace kit
 {
@@ -14,6 +15,9 @@ namespace kit
         void Initialize();
         void ExtractGameState();
         void GetTurnOrders(std::vector<std::string>& orders);
+
+    private:
+        Commander m_commander;
     };
 }
 #endif

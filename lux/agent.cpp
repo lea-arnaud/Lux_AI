@@ -1,5 +1,7 @@
 #include "lux/agent.hpp"
 
+#include <algorithm>
+
 namespace kit
 {
     void Agent::Initialize()
@@ -79,7 +81,17 @@ namespace kit
 
     void Agent::GetTurnOrders(std::vector<std::string>& orders)
     {
-        //Write Code Here
+        // sense
+        GameState turnState; // TODO fill turn state
+        
+        // think
+        m_commander.updateHighLevelObjectives(turnState);
+
+        // act
+        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders();
+        auto ordersEnd = std::remove_if(commanderOrders.begin(), commanderOrders.end(), [](TurnOrder &t) { return t.type == TurnOrder::DO_NOTHING; });
+        orders.resize(std::distance(commanderOrders.begin(), ordersEnd));
+        std::transform(commanderOrders.begin(), ordersEnd, orders.begin(), [&](TurnOrder &o) { return o.getAsString(turnState.map); });
     }
 }
 

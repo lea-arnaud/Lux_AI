@@ -35,10 +35,14 @@ SET( AIBOT_HEADERS
 	#Framework
 	lux/agent.hpp
 	lux/kit.hpp
+	log.h
 	Bot.h
 	City.h
 	Map.h
 	Tile.h
+	command_chain.h
+	game_state.h
+	turn_order.h
 )
 
 SET( AIBOT_SRC 
@@ -50,6 +54,9 @@ SET( AIBOT_SRC
 	Map.cpp
 	Tile.cpp
 	main.cpp
+	command_chain.cpp
+	game_state.cpp
+	turn_order.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")
