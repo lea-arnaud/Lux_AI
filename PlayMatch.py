@@ -8,11 +8,15 @@ import multiprocessing
 import glob
 
 seeds = [100]
-bots = ["build-solution-x64\Debug\TeamName.exe", "build-solution-x64\Debug\TeamName.exe"]
+bots = ["build-solution-x64\Debug\\1.exe", "build-solution-x64\Debug\\1.exe"]
+
+def is_env_var_set(name):
+    return name in os.environ and os.environ[name] != ''
 
 cpu_cores = int(os.environ['LUX_CPU']) if 'LUX_CPU' in os.environ else 20
-silent = 'LUX_SILENT' in os.environ and os.environ['LUX_SILENT'] != ''
-verbose = 'LUX_VERBOSE' in os.environ and os.environ['LUX_VERBOSE'] != ''
+silent = is_env_var_set('LUX_SILENT')
+verbose = is_env_var_set('LUX_VERBOSE')
+no_timeout = is_env_var_set('LUX_NOTIMEOUT')
 
 if len(sys.argv) > 1:
     seeds = list(range(int(sys.argv[1].replace("r", ""))))
@@ -22,14 +26,23 @@ if len(sys.argv) > 3:
 
 def run_game(seed):
     [bot1, bot2] = bots
-    result = subprocess.run(["lux-ai-2021", "--seed="+str(seed), "--loglevel=0", bot1, bot2], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+    result = subprocess.run(["lux-ai-2021",
+        "--seed="+str(seed),
+        "--loglevel=0",
+        "--statefulReplay",
+        f"--maxtime={1000000 if no_timeout else 3000}",
+        bot1, bot2], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
     if result.stderr != '' and not silent:
         print('\033[31mErrors occured: ----------------\033[0m')
         print(result.stderr)
         print('\033[31m--------------------------------\033[0m')
     fixed_output = re.sub('(ranks|rank|agentID|name|replayFile|seed)', '"\g<1>"', result.stdout)
     fixed_output = re.sub("'", '"', fixed_output)
-    game_results = json.loads(fixed_output)
+    try:
+        game_results = json.loads(fixed_output)
+    except:
+        print('\033[31mCrash   \033[0m', fixed_output)
+        return
     game_results['ranks'].sort(key=lambda x: x['agentID'])
     [p0, p1] = game_results['ranks']
     print(f'Game seed={seed: 6} ', end='')
@@ -49,8 +62,11 @@ if __name__ == '__main__':
     os.system('')
     print('Using bots\033[33m', *bots, '\033[0m')
     
-    with multiprocessing.Pool(20) as p:
-        p.map(run_game, seeds)
+    if len(seeds) == 1:
+        run_game(seeds[0])
+    else:
+        with multiprocessing.Pool(min(20, len(seeds))) as p:
+            p.map(run_game, seeds)
         
     if len(seeds) == 1:
         list_of_files = glob.glob('errorlogs/*')

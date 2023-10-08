@@ -17,7 +17,7 @@ struct TurnOrder
     DO_NOTHING, // a do-nothing order may as well not be generated
   } type;
 
-  Bot *bot;
+  const Bot *bot;
 
   union
   {

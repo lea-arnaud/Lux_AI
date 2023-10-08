@@ -11,5 +11,6 @@ std::string TurnOrder::getAsString(const Map &map)
   case TurnOrder::DO_NOTHING:  return "";
   case TurnOrder::CREATE_BOT:  return kit::buildWorker(bot->getX(), bot->getY());
   case TurnOrder::CREATE_CART: return kit::buildCart(bot->getX(), bot->getY());
+  default: throw std::runtime_error("Unimplemented turn order " + std::to_string(type));
   }
 }

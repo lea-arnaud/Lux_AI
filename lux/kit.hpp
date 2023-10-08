@@ -11,7 +11,7 @@ namespace kit
     {
         wood = 'w',
         coal = 'c',
-        uranium = 'u'
+        uranium = 'u',
     };
 
     class INPUT_CONSTANTS

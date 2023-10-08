@@ -7,30 +7,36 @@
 
 int main()
 {
+    std::cerr << "Hello game!" << std::endl; // mandatory log for lux-ai-2021 not to crash on log deletion
     kit::Agent agent = kit::Agent();
     agent.Initialize();
 
-    while (true)
-    {
-        agent.ExtractGameState();
-
-        std::vector<std::string> orders = std::vector<std::string>();
-        agent.GetTurnOrders(orders);
-
-        //Send orders to game engine
-        for (int i = 0; i < orders.size(); i++)
+    try {
+        while (true)
         {
-            if (i != 0)
+            agent.ExtractGameState();
+
+            std::vector<std::string> orders = std::vector<std::string>();
+            agent.GetTurnOrders(orders);
+
+            //Send orders to game engine
+            for (int i = 0; i < orders.size(); i++)
             {
-                std::cout << ",";
-            }
+                if (i != 0)
+                {
+                    std::cout << ",";
+                }
         
-            std::cout << orders[i];
-        }
-        std::cout << std::endl;
+                std::cout << orders[i];
+            }
+            std::cout << std::endl;
     
-        // end turn
-        kit::end_turn();
+            // end turn
+            kit::end_turn();
+        }
+    } catch (const std::runtime_error &e) {
+        std::cerr << "Fatal error: " << e.what();
+        throw;
     }
 
     return 0;

@@ -43,6 +43,7 @@ SET( AIBOT_HEADERS
 	command_chain.h
 	game_state.h
 	turn_order.h
+	types.h
 )
 
 SET( AIBOT_SRC 

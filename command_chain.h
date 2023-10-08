@@ -27,14 +27,17 @@ struct BotGoal
   };
 };
 
-class SquadBot
+class SquadAgent
 {
 public:
+  SquadAgent(const Bot *bot) : m_bot(bot) {}
+
   CompletionState getGoalState();
+  const Bot &getBot() const { return *m_bot; }
 
 private:
-  Bot    *m_bot;
-  BotGoal m_goal;
+  const Bot *m_bot;
+  BotGoal    m_goal;
 };
 
 struct SquadObjective
@@ -55,18 +58,19 @@ class Squad
 public:
   CompletionState getObjectiveState();
 
-  std::vector<SquadBot> &getBots() { return m_bots; }
+  std::vector<SquadAgent> &getAgents() { return m_agents; }
 
 private:
-  std::vector<SquadBot> m_bots;
+  std::vector<SquadAgent> m_agents;
   std::unique_ptr<SquadObjective> m_objective;
 };
 
 class Commander
 {
 public:
-  void updateHighLevelObjectives(const GameState &state);
-  std::vector<TurnOrder> getTurnOrders();
+  Commander();
+  void updateHighLevelObjectives(const GameState &state, const GameStateDiff &diff);
+  std::vector<TurnOrder> getTurnOrders(const Map &map);
 
 private:
   std::vector<Squad> m_squads;
