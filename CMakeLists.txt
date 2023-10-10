@@ -44,6 +44,8 @@ SET( AIBOT_HEADERS
 	game_state.h
 	turn_order.h
 	types.h
+	BehaviorTree.h
+	game_rules.h
 )
 
 SET( AIBOT_SRC 

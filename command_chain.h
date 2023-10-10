@@ -2,6 +2,8 @@
 
 #include "game_state.h"
 #include "turn_order.h"
+#include "BehaviorTree.h"
+#include "BehaviorTreeNames.h"
 
 enum CompletionState
 {
@@ -30,14 +32,20 @@ struct BotGoal
 class SquadAgent
 {
 public:
-  SquadAgent(const Bot *bot) : m_bot(bot) {}
+  explicit SquadAgent(const Bot *bot, const std::shared_ptr<Blackboard> &blackboard, const std::shared_ptr<BasicBehavior> &behaviorTree)
+    : m_bot(bot)
+    , m_blackboard(blackboard)
+    , m_behaviorTree(behaviorTree)
+  {}
 
-  CompletionState getGoalState();
   const Bot &getBot() const { return *m_bot; }
+  Blackboard &getBlackboard() { return *m_blackboard; }
+  void act() { m_behaviorTree->run(m_blackboard); }
 
 private:
-  const Bot *m_bot;
-  BotGoal    m_goal;
+  const Bot                     *m_bot;
+  std::shared_ptr<Blackboard>    m_blackboard;
+  std::shared_ptr<BasicBehavior> m_behaviorTree;
 };
 
 struct SquadObjective
@@ -74,5 +82,6 @@ public:
 
 private:
   std::vector<Squad> m_squads;
+  Blackboard m_globalBlackboard;
 };
 

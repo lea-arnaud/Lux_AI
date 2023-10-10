@@ -1,1 +1,0 @@
-lux/agent.hpp;lux/kit.hpp;log.h;Bot.h;City.h;Map.h;Tile.h;command_chain.h;game_state.h;turn_order.h;lux/agent.cpp;Bot.cpp;City.cpp;Map.cpp;Tile.cpp;main.cpp;command_chain.cpp;game_state.cpp;turn_order.cpp;CleanAll.bat;CMakeLists.txt;Filters.cmake;GenSubmit.bat;GenSubmit.py;PlayLocalMatch.bat;PlayLocalMatch.py;rebuild_vis_sln_x64.bat

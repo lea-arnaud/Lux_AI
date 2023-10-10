@@ -1,6 +1,13 @@
 #include "command_chain.h"
 
-static constexpr float MAX_ACT_COOLDOWN = 1.f; // units must have cooldown<1 to act
+#include <algorithm>
+
+#include "game_rules.h"
+#include "log.h"
+
+static std::shared_ptr<BasicBehavior> WORKER_BEHAVIOR;
+static std::shared_ptr<BasicBehavior> CART_BEHAVIOR;
+static std::shared_ptr<BasicBehavior> CITY_BEHAVIOR;
 
 Commander::Commander()
 {
@@ -11,37 +18,46 @@ void Commander::updateHighLevelObjectives(const GameState &state, const GameStat
 {
     Squad &firstSquad = m_squads[0];
     firstSquad.getAgents().clear();
-    for (const Bot &bot : state.bots)
-        firstSquad.getAgents().push_back(SquadAgent(&bot));
+    for (const Bot &bot : state.bots) {
+        auto agentBehavior = (
+          bot.getType() == UNIT_TYPE::WORKER ? WORKER_BEHAVIOR :
+          bot.getType() == UNIT_TYPE::CART ? CART_BEHAVIOR :
+          bot.getType() == UNIT_TYPE::CITY ? CITY_BEHAVIOR :
+          WORKER_BEHAVIOR/*unreachable*/);
+        // TODO keep track of agent blackboard states between turns
+        auto agentBlackboard = std::make_shared<Blackboard>();
+
+        SquadAgent agent{ &bot, agentBlackboard, agentBehavior };
+
+        agentBlackboard->insertData(bbn::AGENT_SELF, &agent);
+        firstSquad.getAgents().push_back(std::move(agent));
+    }
 }
 
 std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
 {
+    static int turnNumber = 0;
+    LOG("Turn " << ++turnNumber);
+
+    std::vector<TurnOrder> orders;
+    m_globalBlackboard.insertData(bbn::GLOBAL_MAP, &map);
+    m_globalBlackboard.insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
+
+    // collect agents that can act right now
     std::vector<SquadAgent*> availableAgents;
     for (Squad &squad : m_squads) {
         for (SquadAgent &agents : squad.getAgents()) {
-            if(agents.getBot().getCooldown() < MAX_ACT_COOLDOWN)
+            if(agents.getBot().getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.push_back(&agents);
         }
     }
 
-    // TODO collect agents that should pathfind here
-    // TODO do pathfinding here
+    // TODO restore when the behavior trees are restored
+    //std::for_each(availableAgents.begin(), availableAgents.end(),
+    //  [](SquadAgent *agent) { agent->act(); });
 
-    std::vector<TurnOrder> orders;
-
-    // TODO implement squad/bot objectives
-    for (SquadAgent *agent : availableAgents) {
-        TurnOrder order{};
-        order.bot = &agent->getBot();
-        if (agent->getBot().getType() == UNIT_TYPE::CITY) {
-            order.type = TurnOrder::RESEARCH;
-        } else {
-            order.type = TurnOrder::MOVE;
-            order.targetTile = map.getTileNeighbour(map.getTileIndex(agent->getBot()), kit::DIRECTIONS::EAST);
-        }
-        orders.push_back(order);
-    }
+    // not critical, but keeping dandling pointers alive is never a good idea
+    m_globalBlackboard.removeData(bbn::GLOBAL_ORDERS_LIST);
 
     return orders;
 }

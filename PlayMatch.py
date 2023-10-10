@@ -26,12 +26,14 @@ if len(sys.argv) > 3:
 
 def run_game(seed):
     [bot1, bot2] = bots
-    result = subprocess.run(["lux-ai-2021",
+    result = subprocess.run([
+        "lux-ai-2021",
         "--seed="+str(seed),
         "--loglevel=0",
         "--statefulReplay",
         f"--maxtime={1000000 if no_timeout else 3000}",
-        bot1, bot2], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+        bot1, bot2
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
     if result.stderr != '' and not silent:
         print('\033[31mErrors occured: ----------------\033[0m')
         print(result.stderr)
@@ -61,6 +63,8 @@ def read_to_string(file_path):
 if __name__ == '__main__':
     os.system('')
     print('Using bots\033[33m', *bots, '\033[0m')
+    print('Config:', *map(lambda x: (x, eval(x)), ['no_timeout', 'cpu_cores', 'silent', 'verbose']))
+    print(f'Running on {len(seeds)=}')
     
     if len(seeds) == 1:
         run_game(seeds[0])
