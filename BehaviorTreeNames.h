@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BEHAVIOR_TREE_NAMES_H
+#define BEHAVIOR_TREE_NAMES_H
 
 #include <string>
 
@@ -13,8 +14,10 @@ DEF_BLACKBOARD_ENTRY(GLOBAL_MAP); // Map*
 DEF_BLACKBOARD_ENTRY(GLOBAL_ORDERS_LIST); // std::vector<TurnOrder>*
 
 // agent-scope entries
-DEF_BLACKBOARD_ENTRY(AGENT_SELF); // SquadAgent*
+DEF_BLACKBOARD_ENTRY(AGENT_SELF); // Bot*
 
 }
 
 namespace bbn = blackboard_names;
+
+#endif

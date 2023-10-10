@@ -1,4 +1,5 @@
-#pragma once
+#ifndef GAME_STATE_H
+#define GAME_STATE_H
 
 #include "Map.h"
 #include "City.h"
@@ -23,3 +24,5 @@ struct GameStateDiff
 
   std::vector<tileindex_t> updatedRoads;
 };
+
+#endif

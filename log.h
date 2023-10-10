@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LOG_H
+#define LOG_H
 
 #include <iostream>
 #include <utility>
@@ -14,3 +15,5 @@ std::ostream &operator<<(std::ostream &out, const std::pair<T, U> &pair)
 {
   return out << pair.first << "," << pair.second;
 }
+
+#endif

@@ -18,7 +18,7 @@ namespace kit
 
     void Agent::ExtractGameState()
     {
-        const GameState &oldState = m_gameState;
+        GameState &oldState = m_gameState;
         GameState newState;
         GameStateDiff stateDiff;
         newState.map.setSize(m_mapWidth, m_mapHeight);
@@ -59,9 +59,24 @@ namespace kit
                 int wood = std::stoi(updates[i++]);
                 int coal = std::stoi(updates[i++]);
                 int uranium = std::stoi(updates[i++]);
-                newState.bots.push_back(Bot(unitid, x, y, cooldown, wood, coal, uranium, (UNIT_TYPE)unittype, getPlayer(team)));
-                if (std::none_of(oldState.bots.begin(), oldState.bots.end(), [&](const Bot &bot) { return bot.getId() == unitid; }))
-                    stateDiff.newBots.push_back(&newState.bots.back());
+
+                auto existingAgent = std::find_if(oldState.bots.begin(), oldState.bots.end(),
+                  [&unitid](const Bot &agent) { return agent.getId() == unitid; });
+                if (existingAgent != oldState.bots.end()) {
+                  newState.bots.emplace_back(std::move(*existingAgent));
+                  oldState.bots.erase(existingAgent);
+                  stateDiff.newBots.push_back(&newState.bots.back());
+                } else {
+                  newState.bots.push_back(Bot(unitid, (UNIT_TYPE)unittype, getPlayer(team), nullptr)); // FIX use workers/carts behavior trees
+                }
+                Bot &updatedAgent = newState.bots.back();
+                updatedAgent.setX(x);
+                updatedAgent.setY(y);
+                updatedAgent.setCooldown(cooldown);
+                updatedAgent.setWoodAmount(wood);
+                updatedAgent.setCoalAmount(coal);
+                updatedAgent.setUraniumAmount(uranium);
+                updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
             }
             else if (input_identifier == INPUT_CONSTANTS::CITY)
             {
@@ -80,11 +95,19 @@ namespace kit
                 int x = std::stoi(updates[i++]);
                 int y = std::stoi(updates[i++]);
                 float cooldown = std::stof(updates[i++]);
-                player_t player = getPlayer(team);
-                newState.map.tileAt(x, y).setType(player == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);
-                newState.bots.push_back(Bot(cityid, x, y, cooldown, 0, 0, 0, UNIT_TYPE::CITY, getPlayer(team)));
-                if (std::none_of(oldState.bots.begin(), oldState.bots.end(), [&](const Bot &bot) { return bot.getId() == cityid; }))
-                    stateDiff.newBots.push_back(&newState.bots.back());
+                
+                auto existingAgent = std::find_if(oldState.bots.begin(), oldState.bots.end(),
+                  [&cityid](const Bot &agent) { return agent.getId() == cityid; });
+                if (existingAgent != oldState.bots.end()) {
+                  newState.bots.emplace_back(std::move(*existingAgent));
+                  oldState.bots.erase(existingAgent);
+                  stateDiff.newBots.push_back(&newState.bots.back());
+                } else {
+                  newState.bots.push_back(Bot(cityid, UNIT_TYPE::CITY, getPlayer(team), nullptr)); // FIX use city behavior trees
+                }
+                Bot &updatedAgent = newState.bots.back();
+                updatedAgent.setCooldown(cooldown);
+                updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
             }
             else if (input_identifier == INPUT_CONSTANTS::ROADS)
             {
@@ -99,10 +122,7 @@ namespace kit
             }
         }
 
-        for (const Bot &oldBot : oldState.bots) {
-            if (std::none_of(newState.bots.begin(), newState.bots.end(), [&](const Bot &bot) { return bot.getId() == oldBot.getId(); }))
-                stateDiff.deadBots.push_back(oldBot);
-        }
+        stateDiff.deadBots = std::move(oldState.bots);
 
         m_gameState = std::move(newState);
         m_gameStateDiff = std::move(stateDiff);

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TURN_ORDER_H
+#define TURN_ORDER_H
 
 #include <string>
 
@@ -26,3 +27,5 @@ struct TurnOrder
 
   std::string getAsString(const Map &map);
 };
+
+#endif

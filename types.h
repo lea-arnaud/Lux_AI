@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TYPES_H
+#define TYPES_H
 
 #include <stdint.h>
 
@@ -9,3 +10,5 @@ struct Player
 {
   static constexpr player_t ALLY = 0, ENEMY = 1;
 };
+
+#endif

@@ -1,5 +1,6 @@
 #ifndef kit_h
 #define kit_h
+
 #include <ostream>
 #include <string>
 #include <iostream>
