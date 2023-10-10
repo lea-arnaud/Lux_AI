@@ -45,6 +45,7 @@ SET( AIBOT_HEADERS
 	turn_order.h
 	types.h
 	BehaviorTree.h
+	BehaviorTreeNodes.h
 	BehaviorTreeNames.h
 	game_rules.h
 )
@@ -59,6 +60,7 @@ SET( AIBOT_SRC
 	Tile.cpp
 	main.cpp
 	command_chain.cpp
+	BehaviorTreeNodes.cpp
 	game_state.cpp
 	turn_order.cpp
 )

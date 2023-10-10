@@ -1,4 +1,4 @@
-#ifndef DEHAVIORTREE_H
+#ifndef BEHAVIORTREE_H
 #define BEHAVIORTREE_H
 
 #include <vector>
@@ -7,6 +7,7 @@
 #include <memory>
 #include <any>
 #include <stdexcept>
+#include <functional>
 
 class Blackboard {
 	std::shared_ptr<Blackboard> parent;
@@ -40,41 +41,82 @@ public:
 		data.erase(key);
 	}
 
+	bool hasData(const std::string &key) const {
+	  return data.contains(key);
+	}
+
 	template <typename T>
 	T& getData(const std::string& key) {
 		if (data.find(key) != data.end()) {
 			try {
 				return std::any_cast<T&>(data[key]);
-			}
-			catch (const std::bad_any_cast&) {
+			} catch (const std::bad_any_cast&) {
 				throw std::runtime_error("Type mismatch when getting data from Blackboard for: " + key);
 			}
-		}
-		else if (parent != nullptr) {
+		} else if (parent != nullptr) {
 			return parent->getData<T>(key);
-		}
-		else {
+		} else {
 			throw std::out_of_range("Key not found in Blackboard: " + key);
 		}
 	}
+
+};
+
+enum class TaskResult
+{
+  SUCCESS,
+  PENDING,
+  FAILURE,
 };
 
 class Task {
 public:
 	// Return on success (true) or failure (false)
-	virtual bool run(std::shared_ptr<Blackboard> blackboard) = 0;
+	virtual TaskResult run(std::shared_ptr<Blackboard> blackboard) = 0;
+};
+
+class Test : public Task {
+	using function_type = std::function<bool(Blackboard &)>;
+	function_type m_test;
+
+public:
+	Test(function_type &&test) : m_test(std::move(test)) {}
+
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) override
+	{
+		return m_test(*blackboard) ? TaskResult::SUCCESS : TaskResult::FAILURE;
+	}
+};
+
+class SimpleAction : public Task {
+	using function_type = std::function<void(Blackboard &)>;
+	function_type m_action;
+
+public:
+	SimpleAction(function_type &&test) : m_action(std::move(test)) {}
+
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) override
+	{
+		m_action(*blackboard);
+		return TaskResult::SUCCESS;
+	}
 };
 
 class Selector : public Task {
 	std::vector<std::shared_ptr<Task>> children;
 
 public:
-	bool run(std::shared_ptr<Blackboard> blackboard) override {
+	Selector() = default;
+	//Selector(std::initializer_list<std::shared_ptr<Task>> children) : children{ children } {}
+	Selector(auto &&...children) : children{ children... } {}
+
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) override {
 		for (const auto& task : children) {
-			if (task->run(blackboard)) return true;
+			TaskResult result = task->run(blackboard);
+			if (result == TaskResult::SUCCESS || result == TaskResult::PENDING) return result;
 		}
 
-		return false;
+		return TaskResult::SUCCESS;
 	}
 
 	void addTask(std::shared_ptr<Task> task) {
@@ -86,12 +128,16 @@ class Sequence : public Task {
 	std::vector<std::shared_ptr<Task>> children;
 
 public:
-	bool run(std::shared_ptr<Blackboard> blackboard) override {
+	Sequence() = default;
+	Sequence(auto &&...children) : children{ children... } {}
+
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) override {
 		for (const auto& task : children) {
-			if (!task->run(blackboard)) return false;
+			TaskResult result = task->run(blackboard);
+			if (result == TaskResult::FAILURE || result == TaskResult::PENDING) return result;
 		}
 
-		return true;
+		return TaskResult::SUCCESS;
 	}
 
 	void addTask(std::shared_ptr<Task> task) {
@@ -102,15 +148,29 @@ public:
 class Decorator : public Task {
 protected:
 	std::shared_ptr<Task> child;
+
+	Decorator(std::shared_ptr<Task> child) : child(child) {}
+};
+
+class WithResult : public Decorator
+{
+	TaskResult result;
+public:
+    WithResult(TaskResult result, std::shared_ptr<Task> child) : Decorator(child), result(result) {}
+
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) override {
+		child->run(blackboard);
+		return result;
+	}
 };
 
 class BlackboardManager : public Decorator {
 	std::shared_ptr<Blackboard> newBlackboard;
 
-	bool run(std::shared_ptr<Blackboard> blackboard) override {
-		newBlackboard = {blackboard};
-		bool result = child->run(newBlackboard);
-		return result;
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) override {
+		newBlackboard = { blackboard }; // FIX this is a pointer copy, was it supposed to be a copy of the blackboard ?
+		                                // also this is not thread-safe, is there a reason why newBlackboard is an instance member ?
+		return child->run(newBlackboard);
 	}
 };
 
@@ -120,7 +180,7 @@ class BasicBehavior {
 public:
 	BasicBehavior(std::shared_ptr<Task> root) : rootTask(root) {}
 
-	bool run(std::shared_ptr<Blackboard> blackboard) {
+	TaskResult run(std::shared_ptr<Blackboard> blackboard) {
 		return rootTask->run(blackboard);
 	}
 };
