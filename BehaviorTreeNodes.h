@@ -9,6 +9,7 @@
 #include "types.h"
 #include "turn_order.h"
 #include "log.h"
+#include "astar.h"
 
 namespace nodes
 {
