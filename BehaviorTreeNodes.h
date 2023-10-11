@@ -28,7 +28,7 @@ inline std::shared_ptr<Task> testIsAgentFullOfResources()
 {
   return std::make_shared<Test>([](Blackboard &bb) {
     Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    return bot->getCoalAmount() + bot->getUraniumAmount() + bot->getUraniumAmount() >= game_rules::WORKER_CARRY_CAPACITY;
+    return bot->getCoalAmount() * game_rules::COAL_VALUE + bot->getWoodAmount() * game_rules::WOOD_VALUE + bot->getUraniumAmount() * game_rules::URANIUM_VALUE >= game_rules::WORKER_CARRY_CAPACITY;
   });
 }
 
