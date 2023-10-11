@@ -141,7 +141,7 @@ namespace kit
         m_commander.updateHighLevelObjectives(m_gameState, m_gameStateDiff);
 
         // act
-        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders(m_gameState.map);
+        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders(m_gameState);
         auto ordersEnd = std::remove_if(commanderOrders.begin(), commanderOrders.end(), [](TurnOrder &t) { return t.type == TurnOrder::DO_NOTHING; });
         orders.resize(std::distance(commanderOrders.begin(), ordersEnd));
         std::transform(commanderOrders.begin(), ordersEnd, orders.begin(), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });

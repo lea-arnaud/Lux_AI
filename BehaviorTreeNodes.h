@@ -209,7 +209,7 @@ inline std::shared_ptr<Task> testIsEnoughAgent()
         });
 }
 
-inline std::shared_ptr<Task> testIsEnoughResearch()
+inline std::shared_ptr<Task> testIsEnoughResearchPoint()
 {
     return NULL;
 }

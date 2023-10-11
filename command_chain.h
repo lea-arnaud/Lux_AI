@@ -21,7 +21,7 @@ class Commander
 public:
   Commander();
   void updateHighLevelObjectives(GameState &state, const GameStateDiff &diff);
-  std::vector<TurnOrder> getTurnOrders(const Map &map);
+  std::vector<TurnOrder> getTurnOrders(const GameState &gameState);
 
 private:
   std::vector<Squad> m_squads;
