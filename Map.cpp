@@ -46,9 +46,9 @@ bool Map::isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const
     std::pair<int, int> position = getTilePosition(source);
 
     switch (direction) {
-    case kit::DIRECTIONS::EAST:  return position.first < m_width;
+    case kit::DIRECTIONS::EAST:  return position.first < m_width-1;
     case kit::DIRECTIONS::WEST:  return position.first > 0;
-    case kit::DIRECTIONS::SOUTH: return position.second < m_height;
+    case kit::DIRECTIONS::SOUTH: return position.second < m_height-1;
     case kit::DIRECTIONS::NORTH: return position.second > 0;
     default: throw std::runtime_error("Got unexpected direction " + std::to_string((int)direction));
     }

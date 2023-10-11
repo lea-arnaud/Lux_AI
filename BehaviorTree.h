@@ -56,7 +56,8 @@ public:
 			try {
 				return std::any_cast<T&>(data[key]);
 			} catch (const std::bad_any_cast&) {
-				throw std::runtime_error("Type mismatch when getting data from Blackboard for: " + key);
+				throw std::runtime_error("Type mismatch when getting data from Blackboard for: " + key
+				  + " expected " + typeid(T).name() + " got " + data[key].type().name());
 			}
 		} else if (parent != nullptr) {
 			return parent->getData<T>(key);

@@ -24,6 +24,7 @@ void Commander::updateHighLevelObjectives(GameState &state, const GameStateDiff 
 std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
 {
     static int turnNumber = 0;
+    LOG("Turn " << ++turnNumber);
 
     std::vector<TurnOrder> orders;
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &map);

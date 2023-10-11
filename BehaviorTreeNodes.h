@@ -81,7 +81,7 @@ inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)>
           // create a valid path to the cached goal
           std::make_shared<ComplexAction>([&](Blackboard &bb) {
             Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
-            Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
+            const Map *map = bb.getData<const Map*>(bbn::GLOBAL_MAP);
             tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
             std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex);
             if (path.empty()) {
@@ -111,33 +111,29 @@ inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)>
 
 inline std::shared_ptr<Task> taskFetchResources()
 {
-  auto testHasEnoughResources = std::make_shared<Test>([](Blackboard &bb) {
-    Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    return bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount() >= game_rules::WORKER_CARRY_CAPACITY;
-  });
-
+  // TODO move out to another namespace
   auto getResourceFetchingLocation = [](Blackboard &bb) -> tileindex_t 
       {
           Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
           const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
-          Map map = bb.getData<Map>(bbn::GLOBAL_MAP);
+          const Map *map = bb.getData<const Map*>(bbn::GLOBAL_MAP);
 
           tileindex_t tile = 0;
           float tileScore = 0;
-          for (size_t i = 0; i < map.getMapSize(); i++)
+          for (tileindex_t i = 0; i < map->getMapSize(); i++)
           {
-              std::pair<int, int> coords = map.getTilePosition(i);
+              std::pair<int, int> coords = map->getTilePosition(i);
               size_t neighborResources = 0;
-              std::vector<tileindex_t> neighbors = map.getValidNeighbours(i);
-              for (size_t j = 0; j < neighbors.size(); j++)
+              std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
+              for (tileindex_t j : neighbors)
               {
-                  if (map.tileAt(neighbors[i]).getType() == TileType::RESOURCE)
+                  if (map->tileAt(j).getType() == TileType::RESOURCE)
                   {
-                      switch (map.tileAt(neighbors[i]).getResourceType())
+                      switch (map->tileAt(j).getResourceType())
                       {
-                      case kit::ResourceType::wood: neighborResources += std::min(neededResources ,std::min((int)game_rules::WOOD_COLLECT_RATE, map.tileAt(neighbors[i]).getResourceAmount())); break;
-                      case kit::ResourceType::coal: neighborResources += std::min(neededResources, std::min((int)game_rules::COAL_COLLECT_RATE, map.tileAt(neighbors[i]).getResourceAmount())); break;
-                      case kit::ResourceType::uranium: neighborResources += std::min(neededResources, std::min((int)game_rules::URANIUM_COLLECT_RATE, map.tileAt(neighbors[i]).getResourceAmount())); break;
+                      case kit::ResourceType::wood: neighborResources += std::min(neededResources ,std::min((int)game_rules::WOOD_COLLECT_RATE, map->tileAt(j).getResourceAmount())); break;
+                      case kit::ResourceType::coal: neighborResources += std::min(neededResources, std::min((int)game_rules::COAL_COLLECT_RATE, map->tileAt(j).getResourceAmount())); break;
+                      case kit::ResourceType::uranium: neighborResources += std::min(neededResources, std::min((int)game_rules::URANIUM_COLLECT_RATE, map->tileAt(j).getResourceAmount())); break;
                       }
                   }
               }
@@ -159,21 +155,22 @@ inline std::shared_ptr<Task> taskFetchResources()
 
 inline std::shared_ptr<Task> taskBuildCity()
 {
+  // TODO move out to another namespace
   auto getBestCityBuildingPlace = [](Blackboard &bb) -> tileindex_t 
       {
           Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
-          Map map = bb.getData<Map>(bbn::GLOBAL_MAP);
+          const Map* map = bb.getData<const Map*>(bbn::GLOBAL_MAP);
 
           tileindex_t tile = 0;
           float tileScore = 0;
-          for (size_t i = 0; i < map.getMapSize(); i++)
+          for (tileindex_t i = 0; i < map->getMapSize(); i++)
           {
-              std::pair<int, int> coords = map.getTilePosition(i);
+              std::pair<int, int> coords = map->getTilePosition(i);
               size_t neighborCities = 0;
-              std::vector<tileindex_t> neighbors = map.getValidNeighbours(i);
-              for (size_t j = 0; j < neighbors.size(); j++)
+              std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
+              for (tileindex_t j : neighbors)
               {
-                  if (map.tileAt(neighbors[i]).getType() == TileType::ALLY_CITY)
+                  if (map->tileAt(j).getType() == TileType::ALLY_CITY)
                       neighborCities++;
               }
               if (tileScore < neighborCities * ADJACENT_CITIES_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
