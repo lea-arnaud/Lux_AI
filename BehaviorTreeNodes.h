@@ -61,7 +61,6 @@ inline std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboar
 
 inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder)
 {
-  auto pathfind = []() -> std::vector<tileindex_t> { return {}; }; // TODO link with pathfinding algorithm (replace by an actual function)
   auto checkPathValidity = [](Blackboard &bb) -> bool { return true; }; // TODO implement path validity check
 
   return
@@ -81,7 +80,10 @@ inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)>
           ),
           // create a valid path to the cached goal
           std::make_shared<ComplexAction>([&](Blackboard &bb) {
-            std::vector<tileindex_t> path = pathfind();
+            Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+            Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
+            tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
+            std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex);
             if (path.empty()) {
               LOG("A unit could not find a valid path to its target tile");
               return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
