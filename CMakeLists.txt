@@ -48,6 +48,7 @@ SET( AIBOT_HEADERS
 	BehaviorTreeNodes.h
 	BehaviorTreeNames.h
 	game_rules.h
+	astar.h
 )
 
 SET( AIBOT_SRC 

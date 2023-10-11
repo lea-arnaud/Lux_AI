@@ -23,6 +23,7 @@ public:
 	float getRoadAmount() const { return m_road; }
 	void setRoadAmount(float amount) { m_road = amount; }
 	void setResourceAmount(int amount) { m_resourceNb = amount; }
+	TileType getType() const { return m_type; };
 };
 
 #endif
