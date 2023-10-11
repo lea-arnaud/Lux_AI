@@ -50,7 +50,7 @@ inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileinde
 	for (tileindex_t i = 0; i < nodeRecords.size(); ++i) {
 		AStarNode temp{ i, heuristic(map.getTilePosition(i), map.getTilePosition(goalIndex)), 0, nullptr};
 
-		if (i == goalIndex) temp.m_category = OPEN;
+		if (i == map.getTileIndex(start)) temp.m_category = OPEN;
 
 		nodeRecords[i] = temp;
 	}
