@@ -15,6 +15,7 @@ struct TurnOrder
     RESEARCH,
     CREATE_BOT,
     CREATE_CART,
+    COLLECT_RESOURCES,
     DO_NOTHING, // a do-nothing order may as well not be generated
   } type;
 

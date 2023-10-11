@@ -19,16 +19,57 @@ inline std::shared_ptr<Task> testIsNight() {
   });
 }
 
+inline std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Bot *bot)> &&orderSupplier)
+{
+  return std::make_shared<WithResult>(TaskResult::PENDING,
+    std::make_shared<SimpleAction>([orderSupplier = std::move(orderSupplier)](Blackboard &bb) {
+      Bot *bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+      bb.getData<std::vector<TurnOrder>>(bbn::GLOBAL_ORDERS_LIST).push_back(orderSupplier(bot));
+    })
+  );
+}
+
+inline std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)> &&orderSupplier)
+{
+  return std::make_shared<WithResult>(TaskResult::PENDING,
+    std::make_shared<SimpleAction>([orderSupplier = std::move(orderSupplier)](Blackboard &bb) {
+      bb.getData<std::vector<TurnOrder>>(bbn::GLOBAL_ORDERS_LIST).push_back(orderSupplier(bb));
+    })
+  );
+}
+
 inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder)
 {
-  // FIX add the path following part
-  // I'm not sure how to incorporate the part responsible for testing if the current path is still valid or not
+  auto pathfind = []() -> std::vector<tileindex_t> { return {}; }; // TODO link with pathfinding algorithm (replace by an actual function)
+  auto checkPathValidity = [](Blackboard &bb) -> bool { return true; }; // TODO implement path validity check
+
   return 
     std::make_shared<Sequence>(
       std::make_shared<Selector>(
-        std::make_shared<Test>([](Blackboard &bb) { return bb.hasData(bbn::AGENT_PATHFINDING_GOAL); }),
-        std::make_shared<SimpleAction>([goalFinder = std::move(goalFinder)](Blackboard &bb) {
-           bb.insertData(bbn::AGENT_PATHFINDING_GOAL, goalFinder(bb));
+        std::make_shared<Test>([&](Blackboard &bb) {
+          return bb.hasData(bbn::AGENT_PATHFINDING_PATH) && checkPathValidity(bb); // bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH)
+        }),
+        std::make_shared<Sequence>(
+          std::make_shared<Selector>(
+            std::make_shared<Test>([](Blackboard &bb) { return bb.hasData(bbn::AGENT_PATHFINDING_GOAL); }),
+            std::make_shared<SimpleAction>([goalFinder = std::move(goalFinder)](Blackboard &bb) {
+               bb.insertData(bbn::AGENT_PATHFINDING_GOAL, goalFinder(bb));
+            })
+          ),
+          std::make_shared<SimpleAction>([&](Blackboard &bb) {
+            bb.insertData(bbn::AGENT_PATHFINDING_PATH, pathfind());
+          })
+        )
+      ),
+      std::make_shared<Selector>(
+        std::make_shared<Test>([](Blackboard &bb) { return bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH).empty(); }),
+        taskPlayAgentTurn([](Blackboard &bb) {
+          std::vector<tileindex_t> &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
+          Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+
+          tileindex_t nextTile = path.back();
+          path.pop_back();
+          return TurnOrder{ TurnOrder::MOVE, bot, nextTile };
         })
       )
     );
@@ -41,25 +82,18 @@ inline std::shared_ptr<Task> taskFetchResource()
     return bot->getCoalAmount() + bot->getUraniumAmount() + bot->getUraniumAmount() >= game_rules::WORKER_CARRY_CAPACITY;
   });
 
-  return std::make_shared<Selector>(
-    testHasEnoughResources
-    // TODO
-  );
-}
+  auto getResourceFetchingLocation = [](Blackboard &bb) -> tileindex_t { return 0; }; // TODO implement resource research
 
-inline std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Bot *bot)> &&orderSupplier)
-{
-  return std::make_shared<WithResult>(TaskResult::PENDING,
-    std::make_shared<SimpleAction>([orderSupplier = std::move(orderSupplier)](Blackboard &bb) {
-      Bot *bot = bb.getData<Bot*>(bbn::AGENT_SELF);
-      bb.getData<std::vector<TurnOrder>>(bbn::GLOBAL_ORDERS_LIST).push_back(orderSupplier(bot));
-    })
+  return std::make_shared<Selector>(
+    testHasEnoughResources,
+    taskMoveTo(getResourceFetchingLocation),
+    taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
   );
 }
 
 inline std::shared_ptr<Task> taskBuildCity()
 {
-  auto getBestCityBuildingPlace = [](Blackboard &) -> tileindex_t { return 0; }; // to be implemented
+  auto getBestCityBuildingPlace = [](Blackboard &) -> tileindex_t { return 0; }; // TODO implement building location research
 
   return std::make_shared<Sequence>(
     taskFetchResource(),

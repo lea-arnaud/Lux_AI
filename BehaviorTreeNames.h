@@ -17,6 +17,7 @@ DEF_BLACKBOARD_ENTRY(GLOBAL_ORDERS_LIST); // std::vector<TurnOrder>*
 // agent-scope entries
 DEF_BLACKBOARD_ENTRY(AGENT_SELF); // Bot*
 DEF_BLACKBOARD_ENTRY(AGENT_PATHFINDING_GOAL); // tileindex_t
+DEF_BLACKBOARD_ENTRY(AGENT_PATHFINDING_PATH); // std::vector<tileindex_t>
 
 }
 
