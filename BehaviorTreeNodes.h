@@ -201,10 +201,39 @@ inline std::shared_ptr<Task> behaviorWorker()
   );
 }
 
+// Task for the city BT
+inline std::shared_ptr<Task> testIsEnoughAgent()
+{
+    return std::make_shared<Test>([](Blackboard& bb) {
+       return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 8;
+        });
+}
+
+inline std::shared_ptr<Task> testIsEnoughResearch()
+{
+    return NULL;
+}
+
+inline std::shared_ptr<Task> taskCityCreateBot()
+{
+    return NULL;
+}
+
+inline std::shared_ptr<Task> taskCityResearch()
+{
+    return NULL;
+}
+
+
+
 inline std::shared_ptr<Task> behaviorCity()
 {
-  // TODO implement city behaviors
-  return std::make_shared<SimpleAction>([](Blackboard&) {});
+    // TODO implement city behaviors
+    return std::make_shared<Selector>(
+        taskCityCreateBot(),
+        taskCityResearch()
+    );
+
 }
 
 }

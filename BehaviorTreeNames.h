@@ -13,6 +13,7 @@ namespace blackboard_names
 DEF_BLACKBOARD_ENTRY(GLOBAL_MAP); // Map*
 DEF_BLACKBOARD_ENTRY(GLOBAL_TURN); // size_t
 DEF_BLACKBOARD_ENTRY(GLOBAL_ORDERS_LIST); // std::vector<TurnOrder>*
+DEF_BLACKBOARD_ENTRY(GLOBAL_AGENTS); // int
 
 // agent-scope entries
 DEF_BLACKBOARD_ENTRY(AGENT_SELF); // Bot*

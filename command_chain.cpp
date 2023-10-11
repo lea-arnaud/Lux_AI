@@ -25,6 +25,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
 {
     static int turnNumber = 0;
     LOG("Turn " << ++turnNumber);
+    static int nbAgents;
 
     std::vector<TurnOrder> orders;
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &map);
@@ -34,10 +35,13 @@ std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
     std::vector<Bot*> availableAgents;
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
+            nbAgents += 1;
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.push_back(agent);
         }
     }
+
+    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, &nbAgents);
 
     // fill in the orders list through agents behavior trees
     std::for_each(availableAgents.begin(), availableAgents.end(), [this](Bot *agent) {
