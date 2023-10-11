@@ -8,6 +8,7 @@
 #include "game_rules.h"
 #include "types.h"
 #include "turn_order.h"
+#include "astar.h"
 
 namespace nodes
 {

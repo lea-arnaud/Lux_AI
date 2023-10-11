@@ -4,7 +4,7 @@
 #include "Map.h"
 #include "lux\kit.hpp"
 #include "Bot.h"
-#include <list>
+#include <vector>
 #include <queue>
 
 enum Category { CLOSED = 0, OPEN, UNVISITED };
@@ -42,12 +42,12 @@ inline double heuristic(std::pair<int, int> pos1, std::pair<int, int> pos2)
 	return std::abs(pos1.first - pos2.first) + std::abs(pos1.second - pos2.second);
 }
 
-inline std::list<kit::DIRECTIONS> aStar(const Map& map, const Bot& start, tileindex_t goalIndex)
+inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileindex_t goalIndex)
 {
 
 	AStarNode currentRecord;
 	std::vector<AStarNode> nodeRecords(map.getMapSize());
-	for (int i = 0; i < nodeRecords.size(); ++i) {
+	for (tileindex_t i = 0; i < nodeRecords.size(); ++i) {
 		AStarNode temp{ i, heuristic(map.getTilePosition(i), map.getTilePosition(goalIndex)), 0, nullptr};
 
 		if (i == goalIndex) temp.m_category = OPEN;
@@ -111,16 +111,17 @@ inline std::list<kit::DIRECTIONS> aStar(const Map& map, const Bot& start, tilein
 		nodeRecords[currentIndex].m_category = CLOSED;
 	}
 
-	if (currentRecord.m_nodeIndex != goalIndex) return std::list<kit::DIRECTIONS>();
+	if (currentRecord.m_nodeIndex != goalIndex) return std::vector<tileindex_t>();
 
 	// Reconstruct the path
-	std::list<kit::DIRECTIONS> path;
+	std::vector<tileindex_t> path;
 
 	while (currentRecord.m_parent != nullptr) {
-		path.push_front(map.getDirection(currentRecord.m_parent->m_nodeIndex, currentRecord.m_nodeIndex));
+		path.push_back(currentRecord.m_parent->m_nodeIndex);
 		currentRecord = *currentRecord.m_parent;
 	}
 
+	std::reverse(path.begin(), path.end());
 	return path;
 }
 
