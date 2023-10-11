@@ -2,6 +2,11 @@
 
 #include <algorithm>
 
+#include "BehaviorTreeNodes.h"
+
+static const std::shared_ptr<BasicBehavior> BEHAVIOR_WORKER = std::make_shared<BasicBehavior>(nodes::behaviorWorker());
+static const std::shared_ptr<BasicBehavior> BEHAVIOR_CITY = std::make_shared<BasicBehavior>(nodes::behaviorCity());
+
 namespace kit
 {
     void Agent::Initialize()
@@ -67,7 +72,7 @@ namespace kit
                   oldState.bots.erase(existingAgent);
                   stateDiff.newBots.push_back(&newState.bots.back());
                 } else {
-                  newState.bots.push_back(Bot(unitid, (UNIT_TYPE)unittype, getPlayer(team), nullptr)); // FIX use workers/carts behavior trees
+                  newState.bots.push_back(Bot(unitid, (UNIT_TYPE)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
                 }
                 Bot &updatedAgent = newState.bots.back();
                 updatedAgent.setX(x);
@@ -76,7 +81,6 @@ namespace kit
                 updatedAgent.setWoodAmount(wood);
                 updatedAgent.setCoalAmount(coal);
                 updatedAgent.setUraniumAmount(uranium);
-                updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
             }
             else if (input_identifier == INPUT_CONSTANTS::CITY)
             {
@@ -103,7 +107,7 @@ namespace kit
                   oldState.bots.erase(existingAgent);
                   stateDiff.newBots.push_back(&newState.bots.back());
                 } else {
-                  newState.bots.push_back(Bot(cityid, UNIT_TYPE::CITY, getPlayer(team), nullptr)); // FIX use city behavior trees
+                  newState.bots.push_back(Bot(cityid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
                 }
                 Bot &updatedAgent = newState.bots.back();
                 updatedAgent.setCooldown(cooldown);

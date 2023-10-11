@@ -4,9 +4,14 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <thread>
+
+#include "log.h"
 
 int main()
 {
+    //std::this_thread::sleep_for(std::chrono::seconds(5));
+      
     std::cerr << "Hello game!" << std::endl; // mandatory log for lux-ai-2021 not to crash on log deletion
     kit::Agent agent = kit::Agent();
     agent.Initialize();
@@ -35,7 +40,7 @@ int main()
             kit::end_turn();
         }
     } catch (const std::runtime_error &e) {
-        std::cerr << "Fatal error: " << e.what();
+        std::cerr << "Fatal error: " << e.what() << std::endl;
         throw;
     }
 

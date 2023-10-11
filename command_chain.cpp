@@ -6,6 +6,7 @@
 #include "log.h"
 
 Commander::Commander()
+  : m_globalBlackboard(std::make_shared<Blackboard>())
 {
     m_squads.push_back({}); // to be removed, the initial implementation uses one squad only
 }
@@ -13,18 +14,20 @@ Commander::Commander()
 void Commander::updateHighLevelObjectives(GameState &state, const GameStateDiff &diff)
 {
     Squad &firstSquad = m_squads[0];
-    firstSquad.getAgents().resize(state.bots.size());
-    std::transform(state.bots.begin(), state.bots.end(), firstSquad.getAgents().begin(), [](auto &bot) { return &bot; });
+    firstSquad.getAgents().clear();
+    for (Bot &bot : state.bots) {
+      if (bot.getTeam() == Player::ALLY)
+        firstSquad.getAgents().push_back(&bot);
+    }
 }
 
 std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
 {
     static int turnNumber = 0;
-    LOG("Turn " << ++turnNumber);
 
     std::vector<TurnOrder> orders;
-    m_globalBlackboard.insertData(bbn::GLOBAL_MAP, &map);
-    m_globalBlackboard.insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
+    m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &map);
+    m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
 
     // collect agents that can act right now
     std::vector<Bot*> availableAgents;
@@ -35,12 +38,15 @@ std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
         }
     }
 
-    // TODO restore when the behavior trees are restored
-    //std::for_each(availableAgents.begin(), availableAgents.end(),
-    //  [](Bot *agent) { agent->act(); });
+    // fill in the orders list through agents behavior trees
+    std::for_each(availableAgents.begin(), availableAgents.end(), [this](Bot *agent) {
+        agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
+        agent->getBlackboard().setParentBoard(m_globalBlackboard);
+        agent->act();
+    });
 
     // not critical, but keeping dandling pointers alive is never a good idea
-    m_globalBlackboard.removeData(bbn::GLOBAL_ORDERS_LIST);
+    m_globalBlackboard->removeData(bbn::GLOBAL_ORDERS_LIST);
 
     return orders;
 }
