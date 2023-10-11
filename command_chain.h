@@ -25,7 +25,7 @@ public:
 
 private:
   std::vector<Squad> m_squads;
-  Blackboard m_globalBlackboard;
+  std::shared_ptr<Blackboard> m_globalBlackboard;
 };
 
 #endif
