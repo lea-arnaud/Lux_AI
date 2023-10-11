@@ -9,6 +9,9 @@ static constexpr size_t DAY_DURATION = 10;
 static constexpr size_t NIGHT_DURATION = 10;
 static constexpr size_t DAYNIGHT_CYCLE_DURATION = DAY_DURATION + NIGHT_DURATION;
 static constexpr size_t WORKER_CARRY_CAPACITY = 100;
+static constexpr size_t WOOD_VALUE = 1;
+static constexpr size_t COAL_VALUE = 10;
+static constexpr size_t URANIUM_VALUE = 40;
 
 }
 

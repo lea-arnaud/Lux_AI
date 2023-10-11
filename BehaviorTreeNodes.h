@@ -11,6 +11,9 @@
 
 namespace nodes
 {
+    static constexpr float ADJACENT_CITIES_WEIGHT = 10.0f;
+    static constexpr float ADEQUATE_RESOURCE_WEIGHT = 1.0f;
+    static constexpr float DISTANCE_WEIGHT = 1.0f;
 
 inline std::shared_ptr<Task> testIsNight() {
   return std::make_shared<Test>([](Blackboard &bb) {
@@ -79,10 +82,36 @@ inline std::shared_ptr<Task> taskFetchResource()
 {
   auto testHasEnoughResources = std::make_shared<Test>([](Blackboard &bb) {
     Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    return bot->getCoalAmount() + bot->getUraniumAmount() + bot->getUraniumAmount() >= game_rules::WORKER_CARRY_CAPACITY;
+    return bot->getCoalAmount() * game_rules::COAL_VALUE + bot->getWoodAmount() * game_rules::WOOD_VALUE + bot->getUraniumAmount() * game_rules::URANIUM_VALUE >= game_rules::WORKER_CARRY_CAPACITY;
   });
 
-  auto getResourceFetchingLocation = [](Blackboard &bb) -> tileindex_t { return 0; }; // TODO implement resource research
+  auto getResourceFetchingLocation = [](Blackboard &bb) -> tileindex_t 
+      {
+          Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+          const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() * game_rules::COAL_VALUE + bot->getWoodAmount() * game_rules::WOOD_VALUE + bot->getUraniumAmount() * game_rules::URANIUM_VALUE);
+          kit::ResourceType preferredResource = kit::ResourceType::wood;
+          if (neededResources % game_rules::COAL_VALUE == 0)
+              preferredResource = kit::ResourceType::coal;
+          if (neededResources % game_rules::URANIUM_VALUE == 0)
+              preferredResource = kit::ResourceType::uranium;
+
+          tileindex_t tile = 0;
+          float tileScore = 0;
+
+          Map map = bb.getData<Map>(bbn::GLOBAL_MAP);
+          for (size_t i = 0; i < map.getMapSize(); i++)
+          {
+              if (map.tileAt(i).getType() != TileType::RESOURCE || i == map.getTileIndex(*bot)) continue;
+              std::pair<int,int> coords = map.getTilePosition(i);
+              if (tileScore < (map.tileAt(i).getResourceType() == preferredResource ? ADEQUATE_RESOURCE_WEIGHT : 0) + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
+              {
+                  tile = i;
+                  tileScore = (map.tileAt(i).getResourceType() == preferredResource ? ADEQUATE_RESOURCE_WEIGHT : 0) + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+              }
+          }
+
+          return tile; 
+      };
 
   return std::make_shared<Selector>(
     testHasEnoughResources,
@@ -93,7 +122,31 @@ inline std::shared_ptr<Task> taskFetchResource()
 
 inline std::shared_ptr<Task> taskBuildCity()
 {
-  auto getBestCityBuildingPlace = [](Blackboard &) -> tileindex_t { return 0; }; // TODO implement building location research
+  auto getBestCityBuildingPlace = [](Blackboard &bb) -> tileindex_t 
+      {
+          Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+          Map map = bb.getData<Map>(bbn::GLOBAL_MAP);
+
+          tileindex_t tile = 0;
+          float tileScore = 0;
+          for (size_t i = 0; i < map.getMapSize(); i++)
+          {
+              std::pair<int, int> coords = map.getTilePosition(i);
+              size_t neighborCities = 0;
+              std::vector<tileindex_t> neighbors = map.getValidNeighbours(i);
+              for (size_t j = 0; j < neighbors.size(); j++)
+              {
+                  if (map.tileAt(neighbors[i]).getType() == TileType::ALLY_CITY)
+                      neighborCities++;
+              }
+              if (tileScore < neighborCities * ADJACENT_CITIES_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
+              {
+                  tile = i;
+                  tileScore = neighborCities * ADJACENT_CITIES_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+              }
+          }
+          return tile; 
+      };
 
   return std::make_shared<Sequence>(
     taskFetchResource(),

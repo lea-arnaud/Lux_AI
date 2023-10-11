@@ -29,9 +29,9 @@ public:
   player_t getTeam() const { return m_team; }
   UNIT_TYPE getType() const { return m_type; }
   float getCooldown() const { return m_cooldown; }
-  int getWoodAmount() { return m_wood; }
-  int getCoalAmount() { return m_coal; }
-  int getUraniumAmount() { return m_uranium; }
+  int getWoodAmount() const { return m_wood; }
+  int getCoalAmount() const { return m_coal; }
+  int getUraniumAmount() const { return m_uranium; }
 
   void setX(int x) { m_x = x; }
   void setY(int y) { m_y = y; }
