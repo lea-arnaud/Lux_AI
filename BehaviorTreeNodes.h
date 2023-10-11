@@ -14,7 +14,7 @@
 namespace nodes
 {
     static constexpr float ADJACENT_CITIES_WEIGHT = 10.0f;
-    static constexpr float ADEQUATE_RESOURCE_WEIGHT = 1.0f;
+    static constexpr float RESOURCE_NB_WEIGHT = 1.0f;
     static constexpr float DISTANCE_WEIGHT = 1.0f;
 
 inline std::shared_ptr<Task> testIsNight() {
@@ -28,7 +28,7 @@ inline std::shared_ptr<Task> testIsAgentFullOfResources()
 {
   return std::make_shared<Test>([](Blackboard &bb) {
     Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    return bot->getCoalAmount() * game_rules::COAL_VALUE + bot->getWoodAmount() * game_rules::WOOD_VALUE + bot->getUraniumAmount() * game_rules::URANIUM_VALUE >= game_rules::WORKER_CARRY_CAPACITY;
+    return bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount() >= game_rules::WORKER_CARRY_CAPACITY;
   });
 }
 
@@ -113,35 +113,41 @@ inline std::shared_ptr<Task> taskFetchResources()
 {
   auto testHasEnoughResources = std::make_shared<Test>([](Blackboard &bb) {
     Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    return bot->getCoalAmount() * game_rules::COAL_VALUE + bot->getWoodAmount() * game_rules::WOOD_VALUE + bot->getUraniumAmount() * game_rules::URANIUM_VALUE >= game_rules::WORKER_CARRY_CAPACITY;
+    return bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount() >= game_rules::WORKER_CARRY_CAPACITY;
   });
 
   auto getResourceFetchingLocation = [](Blackboard &bb) -> tileindex_t 
       {
           Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
-          const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() * game_rules::COAL_VALUE + bot->getWoodAmount() * game_rules::WOOD_VALUE + bot->getUraniumAmount() * game_rules::URANIUM_VALUE);
-          kit::ResourceType preferredResource = kit::ResourceType::wood;
-          if (neededResources % game_rules::COAL_VALUE == 0)
-              preferredResource = kit::ResourceType::coal;
-          if (neededResources % game_rules::URANIUM_VALUE == 0)
-              preferredResource = kit::ResourceType::uranium;
+          const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
+          Map map = bb.getData<Map>(bbn::GLOBAL_MAP);
 
           tileindex_t tile = 0;
           float tileScore = 0;
-
-          Map map = bb.getData<Map>(bbn::GLOBAL_MAP);
           for (size_t i = 0; i < map.getMapSize(); i++)
           {
-              if (map.tileAt(i).getType() != TileType::RESOURCE || i == map.getTileIndex(*bot)) continue;
-              std::pair<int,int> coords = map.getTilePosition(i);
-              if (tileScore < (map.tileAt(i).getResourceType() == preferredResource ? ADEQUATE_RESOURCE_WEIGHT : 0) + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
+              std::pair<int, int> coords = map.getTilePosition(i);
+              size_t neighborResources = 0;
+              std::vector<tileindex_t> neighbors = map.getValidNeighbours(i);
+              for (size_t j = 0; j < neighbors.size(); j++)
+              {
+                  if (map.tileAt(neighbors[i]).getType() == TileType::RESOURCE)
+                  {
+                      switch (map.tileAt(neighbors[i]).getResourceType())
+                      {
+                      case kit::ResourceType::wood: neighborResources += std::min(neededResources ,std::min((int)game_rules::WOOD_COLLECT_RATE, map.tileAt(neighbors[i]).getResourceAmount())); break;
+                      case kit::ResourceType::coal: neighborResources += std::min(neededResources, std::min((int)game_rules::COAL_COLLECT_RATE, map.tileAt(neighbors[i]).getResourceAmount())); break;
+                      case kit::ResourceType::uranium: neighborResources += std::min(neededResources, std::min((int)game_rules::URANIUM_COLLECT_RATE, map.tileAt(neighbors[i]).getResourceAmount())); break;
+                      }
+                  }
+              }
+              if (tileScore < neighborResources * RESOURCE_NB_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
               {
                   tile = i;
-                  tileScore = (map.tileAt(i).getResourceType() == preferredResource ? ADEQUATE_RESOURCE_WEIGHT : 0) + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+                  tileScore = neighborResources * RESOURCE_NB_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
               }
           }
-
-          return tile; 
+          return tile;
       };
 
   return std::make_shared<Selector>(

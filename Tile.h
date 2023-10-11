@@ -23,8 +23,9 @@ public:
 	float getRoadAmount() const { return m_road; }
 	void setRoadAmount(float amount) { m_road = amount; }
 	void setResourceAmount(int amount) { m_resourceNb = amount; }
+	int getResourceAmount() const { return m_resourceNb; }
 	TileType getType() const { return m_type; };
-	kit::ResourceType getResourceType() const { return m_resource; };
+	kit::ResourceType getResourceType() const { return m_resource; }
 };
 
 #endif
