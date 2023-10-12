@@ -11,27 +11,27 @@ enum Category { CLOSED = 0, OPEN, UNVISITED };
 
 struct AStarNode
 {
-	tileindex_t m_nodeIndex;
+	tileindex_t nodeIndex;
 	// Estimated total cost
-	double m_f;
+	double f;
 	// Cost so far
-	double m_g = std::numeric_limits<double>::max();
-	AStarNode* m_parent = nullptr;
-	Category m_category = UNVISITED;
+	double g = std::numeric_limits<double>::max();
+	AStarNode* parent = nullptr;
+	Category category = UNVISITED;
 
-	AStarNode() : m_nodeIndex{}, m_f{} {}
-	AStarNode(tileindex_t nodeIndex, double fscore) : m_nodeIndex(nodeIndex), m_f(fscore) {}
+	AStarNode() : nodeIndex{}, f{} {}
+	AStarNode(tileindex_t nodeIndex, double fscore) : nodeIndex(nodeIndex), f(fscore) {}
 };
 
 struct AStarNodeCompare
 {
-	const std::vector<AStarNode> &nodeRecords;
+	const std::vector<AStarNode> *nodeRecords;
 
-	AStarNodeCompare(const std::vector<AStarNode>& nodes) : nodeRecords{ nodes } {}
+	AStarNodeCompare(std::vector<AStarNode> *nodes) : nodeRecords{ nodes } {}
 
 	bool operator()(tileindex_t left, tileindex_t right) const
 	{
-		return nodeRecords[left].m_g > nodeRecords[right].m_g;
+		return (*nodeRecords)[left].f > (*nodeRecords)[right].f;
 	}
 };
 
@@ -45,14 +45,14 @@ struct AStarExplorationEntry {
   double gScore;
 };
 
-inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileindex_t goalIndex)
+inline std::vector<tileindex_t> aStar2(const Map& map, const Bot& start, tileindex_t goalIndex)
 {
 	AStarNode currentRecord;
 	std::vector<AStarNode> nodeRecords(map.getMapSize());
 	for (tileindex_t i = 0; i < nodeRecords.size(); ++i)
 		nodeRecords[i] = { i, heuristic(map.getTilePosition(i), map.getTilePosition(goalIndex)) };
-	nodeRecords[map.getTileIndex(start)].m_category = OPEN;
-	nodeRecords[map.getTileIndex(start)].m_g = 0;
+	nodeRecords[map.getTileIndex(start)].category = OPEN;
+	nodeRecords[map.getTileIndex(start)].g = 0;
 
 	auto comp = [](const AStarExplorationEntry &e1, const AStarExplorationEntry &e2) { return e1.gScore > e2.gScore; };
 	std::priority_queue<AStarExplorationEntry, std::vector<AStarExplorationEntry>, decltype(comp)> openSet(comp);
@@ -68,49 +68,134 @@ inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileinde
 
 		// If it is the goal, then terminate.
 		if (currentIndex == goalIndex) break;
-		if (currentRecord.m_category == CLOSED) continue;
+		if (currentRecord.category == CLOSED) continue;
 
 		// Otherwise get its outgoing connections.
 		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex)) {
 			// Get the cost estimate for the neighbor.
-			double tentativeG = currentRecord.m_g + 1; // Assuming uniform cost for all edges
+			double tentativeG = currentRecord.g + 1; // Assuming uniform cost for all edges
 			double tentativeF;
 			AStarNode &neighbourRecord = nodeRecords[neighbourIndex];
 
 			// If the node is closed we may have to skip.
-			if (neighbourRecord.m_category == CLOSED) {
+			if (neighbourRecord.category == CLOSED) {
 				continue;
 			}
 			// Skip if the node is open and we've not found a better route.
-			else if (neighbourRecord.m_g <= tentativeG) {
+			else if (neighbourRecord.g <= tentativeG) {
 				continue;
 			}
 
 			tentativeF = heuristic(map.getTilePosition(neighbourIndex), map.getTilePosition(goalIndex));
 
 			// We're here if we need to update the node. Update the cost, estimate and parent
-			neighbourRecord.m_g = tentativeG;
-			neighbourRecord.m_f = tentativeG + tentativeF;
-			neighbourRecord.m_parent = &nodeRecords[currentIndex];
-			neighbourRecord.m_category = OPEN;
-			openSet.push({ neighbourIndex, neighbourRecord.m_f });
+			neighbourRecord.g = tentativeG;
+			neighbourRecord.f = tentativeG + tentativeF;
+			neighbourRecord.parent = &nodeRecords[currentIndex];
+			neighbourRecord.category = OPEN;
+			openSet.push({ neighbourIndex, neighbourRecord.f });
 		}
 
 		// We've finished looking at the connections for the current node, so add it to the closed list and remove it from the open list.
-		nodeRecords[currentIndex].m_category = CLOSED;
+		nodeRecords[currentIndex].category = CLOSED;
 	}
 
-	if (currentRecord.m_nodeIndex != goalIndex) return std::vector<tileindex_t>();
+	if (currentRecord.nodeIndex != goalIndex) return std::vector<tileindex_t>();
 
 	// Reconstruct the path
 	std::vector<tileindex_t> path;
 
-	while (currentRecord.m_parent != nullptr) {
-		path.push_back(currentRecord.m_nodeIndex);
-		currentRecord = *currentRecord.m_parent;
+	while (currentRecord.parent != nullptr) {
+		path.push_back(currentRecord.nodeIndex);
+		currentRecord = *currentRecord.parent;
 	}
 
-	path.push_back(currentRecord.m_nodeIndex);
+	path.push_back(currentRecord.nodeIndex);
+
+	return path;
+}
+
+inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileindex_t goalIndex)
+{
+	std::vector<AStarNode> nodeRecords(map.getMapSize());
+	for (tileindex_t i = 0; i < nodeRecords.size(); ++i) 
+		nodeRecords[i] = { i, heuristic(map.getTilePosition(i), map.getTilePosition(goalIndex))};
+
+	nodeRecords[map.getTileIndex(start)].category = OPEN;
+
+	AStarNodeCompare comparator(&nodeRecords);
+	std::priority_queue<int, std::vector<int>, AStarNodeCompare> openSet(comparator);
+
+	openSet.push(map.getTileIndex(start));
+
+	AStarNode currentRecord;
+
+	// Iterate through processing each node.
+	while (!openSet.empty()) {
+
+		int currentIndex = openSet.top();
+		openSet.pop();
+		currentRecord = nodeRecords[currentIndex];
+
+		// If it is the goal, then terminate.
+		if (currentIndex == goalIndex) break;
+
+		// Otherwise get its outgoing connections.
+		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex)) {
+			// Get the cost estimate for the neighbor.
+			double tentativeG = currentRecord.g + 1; // Assuming uniform cost for all edges
+			double tentativeF;
+			AStarNode &neighbourRecord = nodeRecords[neighbourIndex];
+
+			// If the node is closed we may have to skip.
+			if (neighbourRecord.category == CLOSED) {
+				continue;
+			}
+			// Skip if the node is open and we've not found a better route.
+			else if (neighbourRecord.category == OPEN) {
+				if (neighbourRecord.g <= tentativeG) continue;
+			}
+
+			tentativeF = heuristic(map.getTilePosition(neighbourIndex), map.getTilePosition(goalIndex));
+
+			// We're here if we need to update the node. Update the cost, estimate and parent
+			neighbourRecord.g = tentativeG;
+			neighbourRecord.f = tentativeG + tentativeF;
+			neighbourRecord.parent = &nodeRecords[currentIndex];
+
+			if (neighbourRecord.category != OPEN) {
+				neighbourRecord.category = OPEN;
+				openSet.push(neighbourIndex);
+			} else {
+				// Update priority_queue
+				std::priority_queue<int, std::vector<int>, AStarNodeCompare> newOpenSet(comparator);
+
+        while (!openSet.empty()) {
+					int nodeIndex = openSet.top();
+          openSet.pop();
+          newOpenSet.push(nodeIndex);
+        }
+				
+				openSet = newOpenSet;
+    	}
+
+		}
+
+		// We've finished looking at the connections for the current node, so add it to the closed list and remove it from the open list.
+		nodeRecords[currentIndex].category = CLOSED;
+	}
+
+	if (currentRecord.nodeIndex != goalIndex) return std::vector<tileindex_t>();
+
+	// Reconstruct the path
+	std::vector<tileindex_t> path;
+
+	while (currentRecord.parent != nullptr) {
+		path.push_back(currentRecord.nodeIndex);
+		currentRecord = *currentRecord.parent;
+	}
+
+	path.push_back(currentRecord.nodeIndex);
 
 	return path;
 }
