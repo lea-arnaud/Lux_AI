@@ -6,7 +6,7 @@ rem Update Configs Here
 rem example:
 rem set TEAM=LesOutardes
 
-set TEAM=
+set TEAM=1
 rem <=================================================
 
 python GenSubmit.py %TEAM%

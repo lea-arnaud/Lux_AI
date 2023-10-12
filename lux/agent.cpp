@@ -99,7 +99,7 @@ namespace kit
                 int x = std::stoi(updates[i++]);
                 int y = std::stoi(updates[i++]);
                 float cooldown = std::stof(updates[i++]);
-                
+
                 auto existingAgent = std::find_if(oldState.bots.begin(), oldState.bots.end(),
                   [&cityid](const Bot &agent) { return agent.getId() == cityid; });
                 if (existingAgent != oldState.bots.end()) {
@@ -112,6 +112,7 @@ namespace kit
                 Bot &updatedAgent = newState.bots.back();
                 updatedAgent.setCooldown(cooldown);
                 updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
+                newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);
             }
             else if (input_identifier == INPUT_CONSTANTS::ROADS)
             {
