@@ -122,6 +122,7 @@ inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileinde
 		nodeRecords[i] = { i, heuristic(map.getTilePosition(i), map.getTilePosition(goalIndex))};
 
 	nodeRecords[map.getTileIndex(start)].category = OPEN;
+	nodeRecords[map.getTileIndex(start)].g = 0;
 
 	AStarNodeCompare comparator(&nodeRecords);
 	std::priority_queue<int, std::vector<int>, AStarNodeCompare> openSet(comparator);
