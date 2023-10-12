@@ -211,7 +211,9 @@ inline std::shared_ptr<Task> testIsEnoughAgent()
 
 inline std::shared_ptr<Task> testIsEnoughResearchPoint()
 {
-    return NULL;
+    return std::make_shared<Test>([](Blackboard& bb) {
+        return bb.getData<size_t>(bbn::GLOBAL_TEAM_RESEARCH_POINT) >= 200;
+        });
 }
 
 inline std::shared_ptr<Task> taskCityCreateBot()
