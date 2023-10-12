@@ -231,10 +231,10 @@ inline std::shared_ptr<Task> taskCityResearch()
 inline std::shared_ptr<Task> behaviorCity()
 {
     // TODO implement city behaviors
-    return std::make_shared<Selector>(
+    /*return std::make_shared<Selector>(
         taskCityCreateBot(),
         taskCityResearch()
-    );
+    );*/
 
 }
 

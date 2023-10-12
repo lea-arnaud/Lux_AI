@@ -1,8 +1,0 @@
-# ninja log v5
-10	1197	7187683456561428	CMakeFiles/1.dir/City.cpp.obj	ea2f7886f0c36181
-66	1549	7187683460103384	CMakeFiles/1.dir/game_state.cpp.obj	ad0f3c0a305f0acc
-18	1550	7187683460092758	CMakeFiles/1.dir/Tile.cpp.obj	c37b32999a11238e
-73	1635	7187683460963328	CMakeFiles/1.dir/turn_order.cpp.obj	f83421a9b628bf25
-14	1673	7187683461344104	CMakeFiles/1.dir/Map.cpp.obj	1e9cfb7998dbd05b
-43	1693	7187683461534364	CMakeFiles/1.dir/main.cpp.obj	7b64847b5f7398dc
-48	1766	7187683462265450	CMakeFiles/1.dir/command_chain.cpp.obj	b7c2507ab4bdb918
