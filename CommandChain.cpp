@@ -26,30 +26,32 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameState &gameState)
 {
     static int turnNumber = 0;
     LOG("Turn " << ++turnNumber);
-    static int nbAgents;
+    int nbAgents = 0;
 
     std::vector<TurnOrder> orders;
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &gameState.map);
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
-    m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, &gameState.playerResearchPoints[Player::ALLY]);
+    m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, gameState.playerResearchPoints[Player::ALLY]);
 
     // collect agents that can act right now
     std::vector<Bot*> availableAgents;
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
-            nbAgents += 1;
+            if (agent->getType() != UNIT_TYPE::CITY)
+                nbAgents += 1;
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.push_back(agent);
         }
     }
 
-    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, &nbAgents);
+    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
 
     // fill in the orders list through agents behavior trees
     std::for_each(availableAgents.begin(), availableAgents.end(), [this](Bot *agent) {
         agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
         agent->getBlackboard().setParentBoard(m_globalBlackboard);
         agent->act();
+        LOG("ID " << agent->getId() );
     });
 
     // not critical, but keeping dandling pointers alive is never a good idea

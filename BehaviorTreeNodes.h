@@ -243,23 +243,30 @@ inline std::shared_ptr<Task> testIsEnoughResearchPoint()
 
 inline std::shared_ptr<Task> taskCityCreateBot()
 {
-    return NULL;
+    return std::make_shared<Selector>(
+        testIsEnoughAgent(),
+        taskLog("There is not enough bot, creating worker", TaskResult::FAILURE),
+        taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::CREATE_WORKER, bot }; })
+    );
 }
 
 inline std::shared_ptr<Task> taskCityResearch()
 {
-    return NULL;
+    return std::make_shared<Selector>(
+       testIsEnoughResearchPoint(),
+       taskLog("There is not enough research point, starting research", TaskResult::FAILURE),
+       taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::RESEARCH, bot }; })
+    );
 }
 
 
 
 inline std::shared_ptr<Task> behaviorCity()
 {
-    // TODO implement city behaviors
-    /*return std::make_shared<Selector>(
+    return std::make_shared<Selector>(
         taskCityCreateBot(),
         taskCityResearch()
-    );*/
+    );
 
 }
 

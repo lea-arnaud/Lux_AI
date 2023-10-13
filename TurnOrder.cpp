@@ -9,7 +9,7 @@ std::string TurnOrder::getAsString(const Map &map)
   case TurnOrder::BUILD_CITY:  return kit::buildCity(bot->getId());
   case TurnOrder::RESEARCH:    return kit::research(bot->getX(), bot->getY());
   case TurnOrder::DO_NOTHING:  return "";
-  case TurnOrder::CREATE_BOT:  return kit::buildWorker(bot->getX(), bot->getY());
+  case TurnOrder::CREATE_WORKER:  return kit::buildWorker(bot->getX(), bot->getY());
   case TurnOrder::CREATE_CART: return kit::buildCart(bot->getX(), bot->getY());
   default: throw std::runtime_error("Unimplemented turn order " + std::to_string(type));
   }
