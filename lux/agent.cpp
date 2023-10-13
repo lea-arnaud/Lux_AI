@@ -100,20 +100,21 @@ namespace kit
                 int y = std::stoi(updates[i++]);
                 float cooldown = std::stof(updates[i++]);
 
+                // lux-ai does not provide ids for city units by default
+                std::string unitid = "c_" + std::to_string(x) + "_" + std::to_string(y);
+                
                 auto existingAgent = std::find_if(oldState.bots.begin(), oldState.bots.end(),
-                  [&cityid](const Bot &agent) { return agent.getId() == cityid; });
+                  [&unitid](const Bot &agent) { return agent.getId() == unitid; });
                 if (existingAgent != oldState.bots.end()) {
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
                   stateDiff.newBots.push_back(&newState.bots.back());
                 } else {
-                  newState.bots.push_back(Bot(cityid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
+                  newState.bots.push_back(Bot(unitid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
                 }
                 Bot &updatedAgent = newState.bots.back();
-  
                 updatedAgent.setX(x);
                 updatedAgent.setY(y);
-         
                 updatedAgent.setCooldown(cooldown);
                 updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
                 newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);

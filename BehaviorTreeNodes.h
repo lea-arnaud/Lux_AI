@@ -231,14 +231,14 @@ inline std::shared_ptr<Task> testIsEnoughAgent()
 {
     return std::make_shared<Test>([](Blackboard& bb) {
        return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 8;
-        });
+    });
 }
 
 inline std::shared_ptr<Task> testIsEnoughResearchPoint()
 {
     return std::make_shared<Test>([](Blackboard& bb) {
         return bb.getData<size_t>(bbn::GLOBAL_TEAM_RESEARCH_POINT) >= 200;
-        });
+    });
 }
 
 inline std::shared_ptr<Task> taskCityCreateBot()
@@ -267,7 +267,6 @@ inline std::shared_ptr<Task> behaviorCity()
         taskCityCreateBot(),
         taskCityResearch()
     );
-
 }
 
 }
