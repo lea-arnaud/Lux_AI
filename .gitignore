@@ -34,3 +34,8 @@ build-solution-x64
 *.exe
 *.out
 *.app
+
+errorlogs/
+replays/
+jobfiles.txt
+*.submit
