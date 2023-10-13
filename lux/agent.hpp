@@ -2,7 +2,7 @@
 #define agent_h
 
 #include "lux/kit.hpp"
-#include "command_chain.h"
+#include "CommandChain.h"
 
 namespace kit
 {

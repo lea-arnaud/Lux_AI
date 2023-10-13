@@ -2,10 +2,10 @@
 #define COMMAND_CHAIN_H
 
 #include "Bot.h"
-#include "game_state.h"
-#include "turn_order.h"
+#include "GameState.h"
+#include "TurnOrder.h"
 #include "BehaviorTreeNames.h"
-#include "types.h"
+#include "Types.h"
 
 class Squad
 {

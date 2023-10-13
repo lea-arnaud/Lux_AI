@@ -1,6 +1,6 @@
 #include "Map.h"
 
-#include "log.h"
+#include "Log.h"
 
 kit::DIRECTIONS Map::getDirection(tileindex_t from, tileindex_t to) const
 {

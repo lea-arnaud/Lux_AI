@@ -5,11 +5,11 @@
 
 #include "BehaviorTree.h"
 #include "BehaviorTreeNames.h"
-#include "game_rules.h"
-#include "types.h"
-#include "turn_order.h"
-#include "log.h"
-#include "astar.h"
+#include "GameRules.h"
+#include "Types.h"
+#include "TurnOrder.h"
+#include "Log.h"
+#include "AStar.h"
 
 namespace nodes
 {
