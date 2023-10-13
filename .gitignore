@@ -38,3 +38,4 @@ build-solution-x64
 errorlogs/
 replays/
 jobfiles.txt
+*.submit

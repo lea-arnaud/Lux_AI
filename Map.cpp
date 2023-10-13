@@ -26,16 +26,15 @@ tileindex_t Map::getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction)
 
 std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source) const
 {
-    static const std::vector<kit::DIRECTIONS> neighbourDirections = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST };
+    static const std::vector<kit::DIRECTIONS> neighbourDirections = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST }; // FIX should not be a method member, should be an array outside
     std::vector<tileindex_t> neighbours{};
 
     for (kit::DIRECTIONS direction : neighbourDirections) {
         if (!isValidNeighbour(source, direction)) continue;
 
-        if (tileindex_t neighbourIndex = getTileNeighbour(source, direction)) {
-            Tile tile = tileAt(neighbourIndex);
-            if (tile.getType() != TileType::ENEMY_CITY) neighbours.push_back(neighbourIndex);
-        }
+        tileindex_t neighbourIndex = getTileNeighbour(source, direction);
+        const Tile &tile = tileAt(neighbourIndex);
+        if (tile.getType() != TileType::ENEMY_CITY) neighbours.push_back(neighbourIndex);
     }
 
     return neighbours;
@@ -43,13 +42,13 @@ std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source) const
 
 bool Map::isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const
 {
-    std::pair<int, int> position = getTilePosition(source);
+    auto [x,y] = getTilePosition(source);
 
     switch (direction) {
-    case kit::DIRECTIONS::EAST:  return position.first < m_width-1;
-    case kit::DIRECTIONS::WEST:  return position.first > 0;
-    case kit::DIRECTIONS::SOUTH: return position.second < m_height-1;
-    case kit::DIRECTIONS::NORTH: return position.second > 0;
+    case kit::DIRECTIONS::EAST:  return x < m_width-1;
+    case kit::DIRECTIONS::WEST:  return x > 0;
+    case kit::DIRECTIONS::SOUTH: return y < m_height-1;
+    case kit::DIRECTIONS::NORTH: return y > 0;
     default: throw std::runtime_error("Got unexpected direction " + std::to_string((int)direction));
     }
 }
