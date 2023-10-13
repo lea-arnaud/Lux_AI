@@ -1,9 +1,9 @@
-#include "command_chain.h"
+#include "CommandChain.h"
 
 #include <algorithm>
 
-#include "game_rules.h"
-#include "log.h"
+#include "GameRules.h"
+#include "Log.h"
 
 Commander::Commander()
   : m_globalBlackboard(std::make_shared<Blackboard>())

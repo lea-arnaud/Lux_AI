@@ -5,17 +5,18 @@
 
 #include "BehaviorTree.h"
 #include "BehaviorTreeNames.h"
-#include "game_rules.h"
-#include "types.h"
-#include "turn_order.h"
-#include "log.h"
-#include "astar.h"
+#include "GameRules.h"
+#include "Types.h"
+#include "TurnOrder.h"
+#include "Log.h"
+#include "AStar.h"
 
 namespace nodes
 {
-    static constexpr float ADJACENT_CITIES_WEIGHT = 10.0f;
-    static constexpr float RESOURCE_NB_WEIGHT = 1.0f;
-    static constexpr float DISTANCE_WEIGHT = 1.0f;
+//static constexpr float ADJACENT_CITIES_WEIGHT = 10.0f;
+static constexpr float ADJACENT_CITIES_WEIGHT = 0.0f; // TODO restore with better pathfinding
+static constexpr float RESOURCE_NB_WEIGHT = 1.0f;
+static constexpr float DISTANCE_WEIGHT = 1.0f; // TODO set to negative
 
 inline std::shared_ptr<Task> testIsNight() {
   return std::make_shared<Test>([](Blackboard &bb) {
@@ -33,9 +34,12 @@ inline std::shared_ptr<Task> testIsAgentFullOfResources()
 }
 
 // debugging method, prints and returns success
-inline std::shared_ptr<Task> taskLog(const std::string &text)
+inline std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result=TaskResult::SUCCESS)
 {
-  return std::make_shared<SimpleAction>([text](Blackboard &) { LOG(text); });
+  return std::make_shared<WithResult>(result, std::make_shared<SimpleAction>([text](Blackboard &bb) {
+    Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+    LOG(bot->getId() << ": " << text);
+  }));
 }
 
 // utility method, adapts a function to a task
@@ -59,12 +63,21 @@ inline std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboar
   );
 }
 
-inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder)
+inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder, const std::string &pathtype)
 {
   auto checkPathValidity = [](Blackboard &bb) -> bool { return true; }; // TODO implement path validity check
 
   return
     std::make_shared<Sequence>(
+      std::make_shared<Selector>(
+        std::make_shared<Test>([=](Blackboard &bb) { return bb.hasData(bbn::AGENT_PATHFINDING_TYPE) && pathtype == bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE); }),
+        std::make_shared<SimpleAction>([=](Blackboard &bb) {
+          LOG("Action interupted: from " << (bb.hasData(bbn::AGENT_PATHFINDING_TYPE) ? bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE) : "none") << " to " << pathtype);
+          bb.removeData(bbn::AGENT_PATHFINDING_GOAL);
+          bb.removeData(bbn::AGENT_PATHFINDING_PATH);
+          bb.insertData(bbn::AGENT_PATHFINDING_TYPE, pathtype);
+        })
+      ),
       // create a path if there is not already a valid one
       std::make_shared<Selector>(
         std::make_shared<Test>([&](Blackboard &bb) {
@@ -74,6 +87,7 @@ inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)>
           // create a goal if there is not already one
           std::make_shared<Selector>(
             std::make_shared<Test>([](Blackboard &bb) { return bb.hasData(bbn::AGENT_PATHFINDING_GOAL); }),
+            taskLog("Choosing a new path goal", TaskResult::FAILURE),
             std::make_shared<SimpleAction>([goalFinder = std::move(goalFinder)](Blackboard &bb) {
                bb.insertData(bbn::AGENT_PATHFINDING_GOAL, goalFinder(bb));
             })
@@ -88,21 +102,25 @@ inline std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)>
               LOG("A unit could not find a valid path to its target tile");
               return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
             }
+            path.pop_back();
+            //LOG("Path found: " << path);
             bb.insertData(bbn::AGENT_PATHFINDING_PATH, std::move(path));
             return TaskResult::SUCCESS;
           })
         )
       ),
-      taskLog("Proceding to follow path"),
       // follow the path if we aren't already there
       std::make_shared<Selector>(
         std::make_shared<Test>([](Blackboard &bb) { return bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH).empty(); }),
+        //taskLog("Path hasn't ended yet", TaskResult::FAILURE),
         taskPlayAgentTurn([](Blackboard &bb) {
           std::vector<tileindex_t> &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
           Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+          const Map *map = bb.getData<const Map *>(bbn::GLOBAL_MAP);
 
           tileindex_t nextTile = path.back();
           path.pop_back();
+          //LOG("Moving from " << map->getTilePosition(map->getTileIndex(*bot)) << " " << map->getTilePosition(nextTile));
           return TurnOrder{ TurnOrder::MOVE, bot, nextTile };
         })
       )
@@ -118,10 +136,12 @@ inline std::shared_ptr<Task> taskFetchResources()
           const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
           const Map *map = bb.getData<const Map*>(bbn::GLOBAL_MAP);
 
-          tileindex_t tile = 0;
-          float tileScore = 0;
+          tileindex_t tile = -1;
+          float tileScore = std::numeric_limits<float>::lowest();
           for (tileindex_t i = 0; i < map->getMapSize(); i++)
           {
+              if(map->tileAt(i).getType() == TileType::ALLY_CITY)
+                  continue;
               std::pair<int, int> coords = map->getTilePosition(i);
               size_t neighborResources = 0;
               std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
@@ -137,10 +157,10 @@ inline std::shared_ptr<Task> taskFetchResources()
                       }
                   }
               }
-              if (tileScore < neighborResources * RESOURCE_NB_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
+              if (tileScore < neighborResources * RESOURCE_NB_WEIGHT - DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
               {
                   tile = i;
-                  tileScore = neighborResources * RESOURCE_NB_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+                  tileScore = neighborResources * RESOURCE_NB_WEIGHT - DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
               }
           }
           return tile;
@@ -148,8 +168,12 @@ inline std::shared_ptr<Task> taskFetchResources()
 
   return std::make_shared<Selector>(
     testIsAgentFullOfResources(),
-    taskMoveTo(getResourceFetchingLocation),
-    taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
+    taskLog("Not enough resources", TaskResult::FAILURE),
+    std::make_shared<Sequence>(
+      taskMoveTo(getResourceFetchingLocation, "resource-fetching-site"),
+      taskLog("Collecting resources"),
+      taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
+    )
   );
 }
 
@@ -161,10 +185,11 @@ inline std::shared_ptr<Task> taskBuildCity()
           Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
           const Map* map = bb.getData<const Map*>(bbn::GLOBAL_MAP);
 
-          tileindex_t tile = 0;
-          float tileScore = 0;
+          tileindex_t tile = -1;
+          float tileScore = std::numeric_limits<float>::lowest();
           for (tileindex_t i = 0; i < map->getMapSize(); i++)
           {
+              if(map->tileAt(i).getType() != TileType::EMPTY) continue;
               std::pair<int, int> coords = map->getTilePosition(i);
               size_t neighborCities = 0;
               std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
@@ -173,18 +198,20 @@ inline std::shared_ptr<Task> taskBuildCity()
                   if (map->tileAt(j).getType() == TileType::ALLY_CITY)
                       neighborCities++;
               }
-              if (tileScore < neighborCities * ADJACENT_CITIES_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
+              if (tileScore < neighborCities * ADJACENT_CITIES_WEIGHT - DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)))
               {
                   tile = i;
-                  tileScore = neighborCities * ADJACENT_CITIES_WEIGHT + DISTANCE_WEIGHT / (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+                  tileScore = neighborCities * ADJACENT_CITIES_WEIGHT - DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
               }
           }
+          //LOG("from " << map->getTilePosition(map->getTileIndex(*bot)) << " chose to build at " << map->getTilePosition(tile));
           return tile; 
       };
 
   return std::make_shared<Sequence>(
     taskFetchResources(),
-    taskMoveTo(getBestCityBuildingPlace),
+    taskLog("Enough resources, moving to city construction tile"),
+    taskMoveTo(getBestCityBuildingPlace, "city-construction-site"),
     taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
   );
 }
@@ -194,10 +221,8 @@ inline std::shared_ptr<Task> behaviorWorker()
   // TODO implement day-night behavior difference
   return std::make_shared<Selector>(
     taskBuildCity(),
-    taskPlayAgentTurn([](Bot *bot) {
-      LOG("Bot " << bot->getId() << " had nothing to do!");
-      return TurnOrder{ TurnOrder::DO_NOTHING, bot };
-    })
+    taskLog("had nothing to do!", TaskResult::FAILURE),
+    taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::DO_NOTHING, bot }; })
   );
 }
 

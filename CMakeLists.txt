@@ -35,20 +35,20 @@ SET( AIBOT_HEADERS
 	#Framework
 	lux/agent.hpp
 	lux/kit.hpp
-	log.h
+	Log.h
 	Bot.h
 	City.h
 	Map.h
 	Tile.h
-	command_chain.h
-	game_state.h
-	turn_order.h
-	types.h
+	CommandChain.h
+	GameState.h
+	TurnOrder.h
+	Types.h
 	BehaviorTree.h
 	BehaviorTreeNodes.h
 	BehaviorTreeNames.h
-	game_rules.h
-	astar.h
+	GameRules.h
+	AStar.h
 )
 
 SET( AIBOT_SRC 
@@ -60,10 +60,10 @@ SET( AIBOT_SRC
 	Map.cpp
 	Tile.cpp
 	main.cpp
-	command_chain.cpp
+	CommandChain.cpp
 	BehaviorTreeNodes.cpp
-	game_state.cpp
-	turn_order.cpp
+	GameState.cpp
+	TurnOrder.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")

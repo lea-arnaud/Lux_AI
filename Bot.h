@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "types.h"
+#include "Types.h"
 #include "BehaviorTree.h"
 
 enum UNIT_TYPE {
