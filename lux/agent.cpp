@@ -110,6 +110,10 @@ namespace kit
                   newState.bots.push_back(Bot(cityid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
                 }
                 Bot &updatedAgent = newState.bots.back();
+  
+                updatedAgent.setX(x);
+                updatedAgent.setY(y);
+         
                 updatedAgent.setCooldown(cooldown);
                 updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
                 newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);
@@ -142,7 +146,7 @@ namespace kit
         m_commander.updateHighLevelObjectives(m_gameState, m_gameStateDiff);
 
         // act
-        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders(m_gameState.map);
+        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders(m_gameState);
         auto ordersEnd = std::remove_if(commanderOrders.begin(), commanderOrders.end(), [](TurnOrder &t) { return t.type == TurnOrder::DO_NOTHING; });
         orders.resize(std::distance(commanderOrders.begin(), ordersEnd));
         std::transform(commanderOrders.begin(), ordersEnd, orders.begin(), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });

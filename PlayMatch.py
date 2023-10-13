@@ -7,7 +7,7 @@ import random
 import multiprocessing
 import glob
 
-seeds = [100]
+seeds = [200]
 bots = ["build-solution-x64\Debug\\1.exe", "build-solution-x64\Debug\\1.exe"]
 
 def is_env_var_set(name):

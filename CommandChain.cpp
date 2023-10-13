@@ -21,23 +21,30 @@ void Commander::updateHighLevelObjectives(GameState &state, const GameStateDiff 
     }
 }
 
-std::vector<TurnOrder> Commander::getTurnOrders(const Map &map)
+
+std::vector<TurnOrder> Commander::getTurnOrders(const GameState &gameState)
 {
     static int turnNumber = 0;
     LOG("Turn " << ++turnNumber);
+    int nbAgents = 0;
 
     std::vector<TurnOrder> orders;
-    m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &map);
+    m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &gameState.map);
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
+    m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, gameState.playerResearchPoints[Player::ALLY]);
 
     // collect agents that can act right now
     std::vector<Bot*> availableAgents;
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
+            if (agent->getType() != UNIT_TYPE::CITY)
+                nbAgents += 1;
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.push_back(agent);
         }
     }
+
+    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
 
     // fill in the orders list through agents behavior trees
     std::for_each(availableAgents.begin(), availableAgents.end(), [this](Bot *agent) {

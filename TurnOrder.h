@@ -13,7 +13,7 @@ struct TurnOrder
     MOVE,
     BUILD_CITY,
     RESEARCH,
-    CREATE_BOT,
+    CREATE_WORKER,
     CREATE_CART,
     DO_NOTHING, // a do-nothing order may as well not be generated
     COLLECT_RESOURCES = DO_NOTHING,

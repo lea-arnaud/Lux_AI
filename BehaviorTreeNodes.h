@@ -226,10 +226,48 @@ inline std::shared_ptr<Task> behaviorWorker()
   );
 }
 
+// Task for the city BT
+inline std::shared_ptr<Task> testIsEnoughAgent()
+{
+    return std::make_shared<Test>([](Blackboard& bb) {
+       return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 8;
+        });
+}
+
+inline std::shared_ptr<Task> testIsEnoughResearchPoint()
+{
+    return std::make_shared<Test>([](Blackboard& bb) {
+        return bb.getData<size_t>(bbn::GLOBAL_TEAM_RESEARCH_POINT) >= 200;
+        });
+}
+
+inline std::shared_ptr<Task> taskCityCreateBot()
+{
+    return std::make_shared<Selector>(
+        testIsEnoughAgent(),
+        taskLog("There is not enough bot, creating worker", TaskResult::FAILURE),
+        taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::CREATE_WORKER, bot }; })
+    );
+}
+
+inline std::shared_ptr<Task> taskCityResearch()
+{
+    return std::make_shared<Selector>(
+       testIsEnoughResearchPoint(),
+       taskLog("There is not enough research point, starting research", TaskResult::FAILURE),
+       taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::RESEARCH, bot }; })
+    );
+}
+
+
+
 inline std::shared_ptr<Task> behaviorCity()
 {
-  // TODO implement city behaviors
-  return std::make_shared<SimpleAction>([](Blackboard&) {});
+    return std::make_shared<Selector>(
+        taskCityCreateBot(),
+        taskCityResearch()
+    );
+
 }
 
 }
