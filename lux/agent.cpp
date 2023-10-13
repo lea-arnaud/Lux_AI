@@ -110,6 +110,10 @@ namespace kit
                   newState.bots.push_back(Bot(cityid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
                 }
                 Bot &updatedAgent = newState.bots.back();
+  
+                updatedAgent.setX(x);
+                updatedAgent.setY(y);
+         
                 updatedAgent.setCooldown(cooldown);
                 updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
                 newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);

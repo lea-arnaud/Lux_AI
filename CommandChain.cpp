@@ -51,7 +51,6 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameState &gameState)
         agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
         agent->getBlackboard().setParentBoard(m_globalBlackboard);
         agent->act();
-        LOG("ID " << agent->getId() );
     });
 
     // not critical, but keeping dandling pointers alive is never a good idea
