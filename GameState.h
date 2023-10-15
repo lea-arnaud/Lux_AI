@@ -1,6 +1,8 @@
 #ifndef GAME_STATE_H
 #define GAME_STATE_H
 
+#include <optional>
+
 #include "Map.h"
 #include "City.h"
 #include "Bot.h"
@@ -11,6 +13,9 @@ struct GameState
   std::vector<City> cities;
   std::vector<Bot> bots;
   size_t playerResearchPoints[2];
+
+  std::optional<const Bot*> getEntityAt(tileindex_t tile) const { auto [x, y] = map.getTilePosition(tile); return getEntityAt(x, y); }
+  std::optional<const Bot*> getEntityAt(int x, int y) const; // TODO add a time frame, to get prioritized planning to work
 };
 
 struct GameStateDiff
