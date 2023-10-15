@@ -22,16 +22,24 @@ void Commander::updateHighLevelObjectives(GameState &state, const GameStateDiff 
 }
 
 
-std::vector<TurnOrder> Commander::getTurnOrders(const GameState &gameState)
+std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
 {
-    static int turnNumber = 0;
-    LOG("Turn " << ++turnNumber);
-    int nbAgents = 0;
-
+    static size_t turnNumber = 0;
     std::vector<TurnOrder> orders;
+
+    turnNumber++;
+
+    LOG("Turn " << turnNumber);
+
+    int nbAgents = 0;
+    size_t friendlyCityCount = std::count_if(gameState.bots.begin(), gameState.bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
+
+    m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
+    m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, &gameState);
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &gameState.map);
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
     m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, gameState.playerResearchPoints[Player::ALLY]);
+    m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, friendlyCityCount);
 
     // collect agents that can act right now
     std::vector<Bot*> availableAgents;

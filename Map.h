@@ -31,6 +31,8 @@ public:
 	Tile &tileAt(int x, int y) { return tileAt(getTileIndex(x, y)); }
 	const Tile &tileAt(tileindex_t index) const { return m_tiles[index]; }
 	const Tile &tileAt(int x, int y) const { return tileAt(getTileIndex(x, y)); }
+	bool isValidTileIndex(tileindex_t index) const { return index <= m_width*m_height; }
+	size_t distanceBetween(tileindex_t t1, tileindex_t t2) const;
 	std::pair<int, int> getTilePosition(tileindex_t tile) const;
 	kit::DIRECTIONS getDirection(tileindex_t from, tileindex_t to) const;
 	tileindex_t getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction) const;

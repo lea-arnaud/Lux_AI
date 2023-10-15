@@ -53,6 +53,14 @@ bool Map::isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const
     }
 }
 
+size_t Map::distanceBetween(tileindex_t t1, tileindex_t t2) const
+{
+    // manhattan distance
+    auto [x1,y1] = getTilePosition(t1);
+    auto [x2,y2] = getTilePosition(t2);
+    return std::abs(x1-x2) + std::abs(y1-y2);
+}
+
 std::pair<int, int> Map::getTilePosition(tileindex_t tile) const
 {
     return std::make_pair(tile % m_width, tile / m_width);

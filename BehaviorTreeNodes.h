@@ -15,6 +15,7 @@ namespace nodes
 {
 
 std::shared_ptr<Task> testIsNight();
+std::shared_ptr<Task> testIsDawnOrNight();
 std::shared_ptr<Task> testIsAgentFullOfResources();
 std::shared_ptr<Task> testHasTeamEnoughAgents();
 std::shared_ptr<Task> testHasTeamEnoughResearchPoint();
@@ -27,6 +28,7 @@ std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Bot *bot)> &&ord
 std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)> &&orderSupplier);
 
 std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(const Bot *, const Map *)> &&goalFinder, const std::string &pathtype);
 std::shared_ptr<Task> taskFetchResources();
 std::shared_ptr<Task> taskBuildCity();
 

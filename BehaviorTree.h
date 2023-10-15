@@ -7,6 +7,7 @@
 #include <memory>
 #include <any>
 #include <stdexcept>
+#include <array>
 #include <functional>
 
 class Blackboard {
@@ -62,7 +63,7 @@ public:
 		} else if (parent != nullptr) {
 			return parent->getData<T>(key);
 		} else {
-			throw std::out_of_range("Key not found in Blackboard: " + key);
+			throw std::runtime_error("Key not found in Blackboard: " + key);
 		}
 	}
 
@@ -123,24 +124,38 @@ public:
 };
 
 class Selector : public Task {
-	std::vector<std::shared_ptr<Task>> children;
+  std::vector<std::shared_ptr<Task>> children;
 
 public:
-	Selector() = default;
-	Selector(auto &&...children) : children{ children... } {}
+  Selector() = default;
+  Selector(auto &&...children) : children{ children... } {}
 
-	TaskResult run(const std::shared_ptr<Blackboard> &blackboard) override {
-		for (const auto& task : children) {
-			TaskResult result = task->run(blackboard);
-			if (result == TaskResult::SUCCESS || result == TaskResult::PENDING) return result;
-		}
-
-		return TaskResult::FAILURE;
+  TaskResult run(const std::shared_ptr<Blackboard> &blackboard) override {
+	for (const auto& task : children) {
+	  TaskResult result = task->run(blackboard);
+	  if (result == TaskResult::SUCCESS || result == TaskResult::PENDING) return result;
 	}
 
-	void addTask(std::shared_ptr<Task> task) {
-		children.push_back(std::move(task));
-	}
+	return TaskResult::FAILURE;
+  }
+
+  void addTask(std::shared_ptr<Task> task) {
+	children.push_back(std::move(task));
+  }
+};
+
+class Alternative : public Task {
+  std::shared_ptr<Task> m_condition, m_branchTrue, m_branchFalse;
+public:
+  Alternative(const std::shared_ptr<Task> &condition, const std::shared_ptr<Task> &branchTrue, const std::shared_ptr<Task> &branchFalse)
+	: m_condition{ condition }, m_branchTrue(branchTrue), m_branchFalse(branchFalse) {}
+
+  TaskResult run(const std::shared_ptr<Blackboard> &blackboard) override {
+	TaskResult result = m_condition->run(blackboard);
+	return result == TaskResult::PENDING ? result
+	  : result == TaskResult::SUCCESS ? m_branchTrue->run(blackboard)
+	  : m_branchFalse->run(blackboard);
+  }
 };
 
 class Sequence : public Task {
@@ -176,9 +191,10 @@ class WithResult : public Decorator
 	TaskResult result;
 public:
     WithResult(TaskResult result, std::shared_ptr<Task> child) : Decorator(child), result(result) {}
+    WithResult(TaskResult result) : Decorator(nullptr), result(result) {}
 
 	TaskResult run(const std::shared_ptr<Blackboard> &blackboard) override {
-		child->run(blackboard);
+		if(child != nullptr) child->run(blackboard);
 		return result;
 	}
 };
