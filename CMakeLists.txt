@@ -47,6 +47,7 @@ SET( AIBOT_HEADERS
 	BehaviorTree.h
 	BehaviorTreeNodes.h
 	BehaviorTreeNames.h
+	Pathing.h
 	GameRules.h
 	AStar.h
 )
@@ -62,6 +63,7 @@ SET( AIBOT_SRC
 	main.cpp
 	CommandChain.cpp
 	BehaviorTreeNodes.cpp
+	Pathing.cpp
 	GameState.cpp
 	TurnOrder.cpp
 )
