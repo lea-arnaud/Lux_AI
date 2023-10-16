@@ -56,7 +56,9 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
 
     // fill in the orders list through agents behavior trees
     std::for_each(availableAgents.begin(), availableAgents.end(), [this](Bot *agent) {
+        BotObjective objective{ BotObjective::ObjectiveType::BUILD_CITY, 0/*TODO find the best construction tile*/ };
         agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
+        agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         agent->getBlackboard().setParentBoard(m_globalBlackboard);
         agent->act();
     });

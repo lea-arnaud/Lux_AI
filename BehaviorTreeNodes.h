@@ -26,11 +26,15 @@ std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result = TaskR
 std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Bot *bot)> &&orderSupplier);
 // utility method, adapts a function to a task
 std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)> &&orderSupplier);
+// a supplier that can be passed to taskMoveTo, that supplies the goal set to the
+// agent by its squad into the agent's blackboard "AGENT_OBJECTIVE" entry
+std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective();
 
-std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder, const std::string &pathtype);
-std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(const Bot *, const Map *)> &&goalFinder, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalSupplier, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(const Bot *, const Map *)> &&goalSupplier, const std::string &pathtype);
 std::shared_ptr<Task> taskFetchResources();
 std::shared_ptr<Task> taskBuildCity();
+std::shared_ptr<Task> taskFeedCity();
 
 std::shared_ptr<Task> taskCityCreateBot();
 std::shared_ptr<Task> taskCityResearch();

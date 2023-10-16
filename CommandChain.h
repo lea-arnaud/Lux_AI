@@ -7,6 +7,18 @@
 #include "BehaviorTreeNames.h"
 #include "Types.h"
 
+struct BotObjective
+{
+  enum class ObjectiveType
+  {
+    GO_BLOCK_PATH,
+    BUILD_CITY,
+    FEED_CITY,
+  } type;
+
+  tileindex_t targetTile;
+};
+
 class Squad
 {
 public:

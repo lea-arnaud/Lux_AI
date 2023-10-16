@@ -1,6 +1,7 @@
 #include "BehaviorTreeNodes.h"
 
 #include "Pathing.h"
+#include "CommandChain.h"
 
 namespace nodes
 {
@@ -170,13 +171,29 @@ std::shared_ptr<Task> taskFetchResources()
   );
 }
 
+std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective()
+{
+  return [](Blackboard &bb) {
+    return bb.getData<BotObjective>(bbn::AGENT_OBJECTIVE).targetTile;
+  };
+}
+
 std::shared_ptr<Task> taskBuildCity()
 {
   return std::make_shared<Sequence>(
     taskFetchResources(),
     taskLog("Enough resources, moving to city construction tile"),
-    taskMoveTo(pathing::getBestCityBuildingLocation, "city-construction-site"),
+    taskMoveTo(goalSupplierFromAgentObjective(), "city-construction-site"),
     taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
+  );
+}
+
+std::shared_ptr<Task> taskFeedCity()
+{
+  return std::make_shared<Sequence>(
+    taskFetchResources(),
+    taskLog("Enough resources, moving to supplying city tile"),
+    taskMoveTo(goalSupplierFromAgentObjective(), "city-supplying-site")
   );
 }
 
@@ -207,16 +224,38 @@ std::shared_ptr<Task> behaviorCity()
   );
 }
 
+class BotObjectiveAlternative : public Task
+{
+private:
+  std::unordered_map<BotObjective::ObjectiveType, std::shared_ptr<Task>> m_strategies;
+public:
+  TaskResult run(const std::shared_ptr<Blackboard> &blackboard) override
+  {
+    BotObjective &objective = blackboard->getData<BotObjective>(bbn::AGENT_OBJECTIVE);
+    if (!m_strategies.contains(objective.type)) throw std::runtime_error("Unimplemented bot objective: " + std::to_string((int)objective.type));
+    return m_strategies[objective.type]->run(blackboard);
+  }
+
+  void addStrategy(BotObjective::ObjectiveType objectiveType, std::shared_ptr<Task> strategy)
+  {
+    m_strategies.emplace(objectiveType, strategy);
+  }
+};
+
 std::shared_ptr<Task> behaviorWorker()
 {
+  auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY, taskBuildCity());
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY, taskFeedCity());
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskMoveTo(goalSupplierFromAgentObjective(), "go-block-path-strategy"));
+
   return
     std::make_shared<Alternative>(
-      std::make_shared<WithResult>(TaskResult::FAILURE), // testIsDawnOrNight(), // TODO restore night behavior
+      testIsDawnOrNight(),
       taskMoveTo(pathing::getBestNightTimeLocation, "closest-city"),
-      std::make_shared<Selector>(
-        taskBuildCity(),
-        taskLog("had nothing to do!", TaskResult::FAILURE),
-        taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::DO_NOTHING, bot }; })
+      std::make_shared<Sequence>(
+        taskPlaySquadProvidedObjective,
+        taskLog("Agent had nothing to do")
       )
     );
 }
