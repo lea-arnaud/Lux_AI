@@ -26,6 +26,9 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
 {
     static size_t turnNumber = 0;
     std::vector<TurnOrder> orders;
+    std::vector<tileindex_t> agentsPosition;
+
+    std::for_each(gameState.bots.begin(), gameState.bots.end(), [&agentsPosition, &gameState](Bot &bot) { agentsPosition.push_back(gameState.map.getTileIndex(bot)); });
 
     turnNumber++;
 
@@ -40,6 +43,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
     m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, gameState.playerResearchPoints[Player::ALLY]);
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, friendlyCityCount);
+    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPosition);
 
     // collect agents that can act right now
     std::vector<Bot*> availableAgents;

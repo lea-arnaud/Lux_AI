@@ -124,7 +124,8 @@ std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goal
             Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
             const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
             tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
-            std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex);
+            std::vector<tileindex_t>* agentsPosition = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
+            std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex, *agentsPosition);
             if (path.empty()) {
               LOG("A unit could not find a valid path to its target tile " << map->getTilePosition(goalIndex) << " from " << bot->getX() << "," << bot->getY());
               return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
