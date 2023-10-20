@@ -69,3 +69,16 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     return orders;
 }
 
+std::map<Archetype, size_t> Strategy::getEnemyStance()
+{
+    std::map<Archetype, size_t> enemySquads;
+    for (int arch = Archetype::CITIZEN; arch < Archetype::TROUBLEMAKER; arch++) {
+        enemySquads.emplace(arch, 0);
+    }
+    return enemySquads;
+}
+
+void Squad::commandAgents()
+{
+
+}
