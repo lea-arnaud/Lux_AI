@@ -45,26 +45,35 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPosition);
 
     // collect agents that can act right now
-    std::vector<Bot*> availableAgents;
+    std::vector<std::pair<Bot*,Archetype>> availableAgents;
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
             if (agent->getType() != UNIT_TYPE::CITY)
                 nbAgents += 1;
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                availableAgents.push_back(agent);
+                availableAgents.push_back(std::pair<Bot*, Archetype>(agent, squad.getArchetype()));
         }
     }
 
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
 
     // fill in the orders list through agents behavior trees
-    std::for_each(availableAgents.begin(), availableAgents.end(), [&,this](Bot *agent) {
-        tileindex_t buildTile = pathing::getBestCityBuildingLocation(agent, &gameState.map);
-        BotObjective objective{ BotObjective::ObjectiveType::BUILD_CITY, buildTile };
-        agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
-        agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
-        agent->getBlackboard().setParentBoard(m_globalBlackboard);
-        agent->act();
+    std::for_each(availableAgents.begin(), availableAgents.end(), [&,this](std::pair<Bot *, Archetype> agent) {
+        tileindex_t targetTile = 0;
+        BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
+        switch (agent.second) {
+            case Archetype::CITIZEN:    //TODO implement CITIZEN/SETTLER difference in pathing::getBestCityBuildingLocation algorithm
+            case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent.first, &gameState.map); break;
+            case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getResourceFetchingLocation(agent.first, &gameState.map); break;
+            case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
+                //case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::BUILD_CITY; break; //TODO implement ROADMAKER cart behaviour
+            default: break;
+        };
+        BotObjective objective{ mission, targetTile };
+        (agent.first)->getBlackboard().insertData(bbn::AGENT_SELF, agent);
+        (agent.first)->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
+        (agent.first)->getBlackboard().setParentBoard(m_globalBlackboard);
+        (agent.first)->act();
     });
 
     // not critical, but keeping dandling pointers alive is never a good idea
@@ -77,12 +86,7 @@ std::map<Archetype, size_t> Strategy::getEnemyStance()
 {
     std::map<Archetype, size_t> enemySquads;
     for (int arch = Archetype::CITIZEN; arch < Archetype::TROUBLEMAKER; arch++) {
-        enemySquads.emplace(arch, 0);
+        enemySquads.emplace(std::pair<Archetype, size_t>((Archetype)arch, 0));
     }
     return enemySquads;
-}
-
-void Squad::commandAgents()
-{
-
 }

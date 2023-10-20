@@ -32,8 +32,7 @@ class Squad
 {
 public:
 	std::vector<Bot *> &getAgents() { return m_agents; }
-
-	void commandAgents();
+	Archetype getArchetype() { return type; }
 
 private:
 	std::vector<Bot *> m_agents;
@@ -66,6 +65,8 @@ public:
   {
 	  m_squads = currentStrategy.adaptToEnemy(currentStrategy.getEnemyStance());
   }
+
+  std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
 
   void commandSquads(bool interrupt) {};
 };
