@@ -24,20 +24,22 @@ tileindex_t Map::getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction)
     }
 }
 
-std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source) const
+std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source, bool canMoveOverCity) const
 {
-    static const std::vector<kit::DIRECTIONS> neighbourDirections = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST }; // FIX should not be a method member, should be an array outside
-    std::vector<tileindex_t> neighbours{};
+  static const std::vector<kit::DIRECTIONS> neighbourDirections = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST }; // FIX should not be a method member, should be an array outside
+  std::vector<tileindex_t> neighbours{};
 
-    for (kit::DIRECTIONS direction : neighbourDirections) {
-        if (!isValidNeighbour(source, direction)) continue;
+  for (kit::DIRECTIONS direction : neighbourDirections) {
+    if (!isValidNeighbour(source, direction)) continue;
 
-        tileindex_t neighbourIndex = getTileNeighbour(source, direction);
-        const Tile &tile = tileAt(neighbourIndex);
-        if (tile.getType() != TileType::ENEMY_CITY) neighbours.push_back(neighbourIndex);
-    }
+    tileindex_t neighbourIndex = getTileNeighbour(source, direction);
+    const Tile &tile = tileAt(neighbourIndex);
+    if (!canMoveOverCity && tile.getType() == TileType::ALLY_CITY) continue;
+    if (tile.getType() == TileType::ENEMY_CITY) continue;
+    neighbours.push_back(neighbourIndex);
+  }
 
-    return neighbours;
+  return neighbours;
 }
 
 bool Map::isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const

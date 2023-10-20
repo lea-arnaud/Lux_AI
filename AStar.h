@@ -6,6 +6,7 @@
 #include "Bot.h"
 #include <vector>
 #include <queue>
+#include <algorithm>
 
 enum Category { CLOSED = 0, OPEN, UNVISITED };
 
@@ -33,7 +34,7 @@ struct AStarExplorationEntry {
   double fScore;
 };
 
-inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileindex_t goalIndex)
+inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileindex_t goalIndex, const std::vector<tileindex_t> &agentsPosition, bool canMoveOverCity = true)
 {
 	AStarNode currentRecord;
 	std::vector<AStarNode> nodeRecords(map.getMapSize());
@@ -59,9 +60,15 @@ inline std::vector<tileindex_t> aStar(const Map& map, const Bot& start, tileinde
 		if (currentRecord.category == CLOSED) continue;
 
 		// Otherwise get its outgoing connections.
-		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex)) {
+		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex, canMoveOverCity)) {
 			// Get the cost estimate for the neighbor.
 			double tentativeG = currentRecord.g + 1 + (Tile::MAX_ROAD - map.tileAt(neighbourIndex).getRoadAmount());
+
+			// TODO: find a better score to check
+			if (tentativeG <= 25.0f && std::find_if(agentsPosition.begin(), agentsPosition.end(),
+				[neighbourIndex](tileindex_t agentIndex) { return neighbourIndex == agentIndex; }) != agentsPosition.end())
+				continue;
+
 			double tentativeF;
 			AStarNode &neighbourRecord = nodeRecords[neighbourIndex];
 

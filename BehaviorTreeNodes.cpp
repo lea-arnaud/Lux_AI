@@ -15,7 +15,7 @@ std::shared_ptr<Task> testIsNight() {
 }
 
 std::shared_ptr<Task> testIsDawnOrNight() {
-  constexpr size_t dawnDuration = 5;
+  constexpr size_t dawnDuration = 3;
   return std::make_shared<Test>([](Blackboard &bb) {
     size_t turn = bb.getData<size_t>(bbn::GLOBAL_TURN);
     return (turn % game_rules::DAYNIGHT_CYCLE_DURATION) >= game_rules::DAY_DURATION - dawnDuration;
@@ -59,6 +59,10 @@ std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result)
   }));
 }
 
+std::shared_ptr<Task> taskLog(const std::string &text, const std::shared_ptr<Task> &wrapped) {
+  return std::make_shared<Sequence>(taskLog(text), wrapped);
+}
+
 std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Bot *bot)> &&orderSupplier)
 {
   return std::make_shared<WithResult>(TaskResult::PENDING,
@@ -78,93 +82,169 @@ std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)>
   );
 }
 
-std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalFinder, const std::string &pathtype)
+std::shared_ptr<Task> taskMoveTo(
+  std::function<tileindex_t(Blackboard &)> &&goalFinder,
+  std::function<bool(Blackboard &)> &&goalValidityChecker,
+  const std::string &pathtype)
 {
+  auto followPathTask =
+    std::make_shared<Selector>(
+      std::make_shared<Test>([](Blackboard &bb) {
+        // if the path has ended, short-circuit
+        return bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH).empty();
+      }),
+      taskPlayAgentTurn([](Blackboard &bb) {
+        auto &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
+        const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+        tileindex_t nextTile = path.back();
+        return TurnOrder{ TurnOrder::MOVE, bot, nextTile };
+      })
+    );
+
+  auto computePathTask = 
+    std::make_shared<ComplexAction>([&](Blackboard &bb) {
+      const Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+      const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
+      tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
+      auto occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
+      BotObjective currentObjective = bb.getData<BotObjective>(bbn::AGENT_OBJECTIVE);
+
+      bool canMoveOntoFriendlyCities = currentObjective.type != BotObjective::ObjectiveType::BUILD_CITY;
+      std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex, *occupiedTiles, canMoveOntoFriendlyCities);
+
+      if (path.empty()) {
+        LOG(bot->getId() << ": could not find a valid path to its target tile " << map->getTilePosition(goalIndex) << " from " << bot->getX() << "," << bot->getY());
+        return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
+      }
+      path.pop_back();
+      bb.insertData(bbn::AGENT_PATHFINDING_PATH, std::move(path));
+      return TaskResult::SUCCESS;
+    });
+
+  auto isGoalValidTest =
+    std::make_shared<Test>([goalValidityChecker = std::move(goalValidityChecker)](Blackboard &bb) {
+      return bb.hasData(bbn::AGENT_PATHFINDING_GOAL) && goalValidityChecker(bb);
+    });
+
+  auto computeGoalTask = 
+    std::make_shared<ComplexAction>([goalFinder = std::move(goalFinder)](Blackboard &bb) {
+      const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+      const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
+      tileindex_t target = goalFinder(bb);
+      if (!map->isValidTileIndex(target)) {
+        LOG(bot->getId() << ": could not find a valid target tile for " << bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE));
+        return TaskResult::PENDING;
+      }
+      bb.insertData(bbn::AGENT_PATHFINDING_GOAL, target);
+      return TaskResult::SUCCESS;
+    });
+
+  auto isPathValidTest =
+    std::make_shared<Test>([&](Blackboard &bb) {
+      if(!bb.hasData(bbn::AGENT_PATHFINDING_PATH)) return false;
+      const GameState *gameState = bb.getData<GameState*>(bbn::GLOBAL_GAME_STATE);
+      const std::vector<tileindex_t> &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
+      constexpr size_t minimumValidTilesAhead = 3;
+      return pathing::checkPathValidity(path, *gameState, minimumValidTilesAhead);
+    });
+
+  auto clearPathcacheTask =
+    std::make_shared<SimpleAction>([=](Blackboard &bb) {
+      bb.removeData(bbn::AGENT_PATHFINDING_GOAL);
+      bb.removeData(bbn::AGENT_PATHFINDING_PATH);
+      bb.insertData(bbn::AGENT_PATHFINDING_TYPE, pathtype);
+    });
+
+  auto objectiveChangedTest =
+    std::make_shared<Test>([=](Blackboard &bb) {
+      const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+      bool changed = !bb.hasData(bbn::AGENT_PATHFINDING_TYPE) || pathtype != bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE);
+      if(changed) LOG(bot->getId() << ": action interupted from " << (bb.hasData(bbn::AGENT_PATHFINDING_TYPE) ? bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE) : "none") << " to " << pathtype);
+      return !changed;
+    });
+
+  auto taskRemoveCurrentTileFromPathCache =
+    std::make_shared<SimpleAction>([](Blackboard &bb) {
+      const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+      const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
+      if (!bb.hasData(bbn::AGENT_PATHFINDING_PATH)) return;
+      auto &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
+      if (path.empty()) return;
+      tileindex_t nextTile = path.back();
+      if (map->getTileIndex(*bot) == nextTile)
+        path.pop_back();
+      //else
+      //  LOG(bot->getId() << ": did not move on the previous turn, probably due to a collision");
+    });
+
   return
     std::make_shared<Sequence>(
+      // first, remove the tile we're at if we moved the previous turn
+      taskRemoveCurrentTileFromPathCache,
+
+      // then, fully clear the path cache if the bot's objective changed
       std::make_shared<Selector>(
-        // Path caching is way more complicated than anticipated, for now computing an A* every turn will have to do
-        //std::make_shared<Test>([=](Blackboard &bb) {
-        //  return bb.hasData(bbn::AGENT_PATHFINDING_TYPE) &&
-        //    pathtype == bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE);
-        //}),
-        std::make_shared<SimpleAction>([=](Blackboard &bb) {
-          //LOG("Action interupted: from " << (bb.hasData(bbn::AGENT_PATHFINDING_TYPE) ? bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE) : "none") << " to " << pathtype);
-          bb.removeData(bbn::AGENT_PATHFINDING_GOAL);
-          bb.removeData(bbn::AGENT_PATHFINDING_PATH);
-          bb.insertData(bbn::AGENT_PATHFINDING_TYPE, pathtype);
-        })
+        objectiveChangedTest,
+        clearPathcacheTask
       ),
-      // create a path if there is not already a valid one
-      std::make_shared<Selector>(
-        std::make_shared<Test>([&](Blackboard &bb) {
-          if(!bb.hasData(bbn::AGENT_PATHFINDING_PATH)) return false;
-          const GameState *gameState = bb.getData<GameState*>(bbn::GLOBAL_GAME_STATE);
-          const std::vector<tileindex_t> &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
-          constexpr size_t minimumValidTilesAhead = 3;
-          return pathing::checkPathValidity(path, *gameState, minimumValidTilesAhead);
-        }),
+
+      std::make_shared<Alternative>(
+        isGoalValidTest,
+        // if the goal is still valid...
+        std::make_shared<Alternative>(
+          isPathValidTest,
+          // if the path is still valid simply follow it
+          followPathTask,
+          // otherwise compute a new path and follow that one
+          std::make_shared<Sequence>(
+            //taskLog("path invalid"),
+            computePathTask,
+            followPathTask
+          )
+        ),
+        // ... if the goal is no longer valid...
         std::make_shared<Sequence>(
-          // create a goal if there is not already one
-          std::make_shared<Selector>(
-            std::make_shared<Test>([](Blackboard &bb) { return bb.hasData(bbn::AGENT_PATHFINDING_GOAL); }),
-            std::make_shared<ComplexAction>([goalFinder = std::move(goalFinder)](Blackboard &bb) {
-              tileindex_t target = goalFinder(bb);
-              const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
-              if (!map->isValidTileIndex(target)) {
-                LOG("A unit could not find a valid target tile for " << bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE));
-                return TaskResult::PENDING;
-              }
-              bb.insertData(bbn::AGENT_PATHFINDING_GOAL, target);
-              return TaskResult::SUCCESS;
-            })
-          ),
-          // create a valid path to the cached goal
-          std::make_shared<ComplexAction>([&](Blackboard &bb) {
-            Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
-            const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
-            tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
-            std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex);
-            if (path.empty()) {
-              LOG("A unit could not find a valid path to its target tile " << map->getTilePosition(goalIndex) << " from " << bot->getX() << "," << bot->getY());
-              return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
-            }
-            path.pop_back();
-            bb.insertData(bbn::AGENT_PATHFINDING_PATH, std::move(path));
-            return TaskResult::SUCCESS;
-          })
+          // compute a new goal, path and follow it
+          //taskLog("goal invalid"),
+          computeGoalTask,
+          computePathTask,
+          followPathTask
         )
-      ),
-      // follow the path if we aren't already there
-      std::make_shared<Selector>(
-        std::make_shared<Test>([](Blackboard &bb) { return bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH).empty(); }),
-        taskPlayAgentTurn([](Blackboard &bb) {
-          std::vector<tileindex_t> &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
-          Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-          tileindex_t nextTile = path.back();
-          path.pop_back();
-          return TurnOrder{ TurnOrder::MOVE, bot, nextTile };
-        })
       )
     );
 }
 
-std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(const Bot *, const Map *)> &&goalFinder, const std::string &pathtype)
+std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, const std::string &pathtype)
 {
-  return taskMoveTo([goalFinder = std::move(goalFinder)](Blackboard &bb) -> tileindex_t {
-    const Bot *bot = bb.getData<Bot*>(bbn::AGENT_SELF);
-    const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
-    return goalFinder(bot, map);
-  }, pathtype);
+  return taskMoveTo(
+    [goalFinder = std::move(goalSupplier)](Blackboard &bb) -> tileindex_t {
+      const Bot *bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+      const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
+      return goalFinder(bot, map);
+    },
+    [goalValidityChecker = std::move(goalValidityChecker)](Blackboard &bb) -> bool {
+      const Bot *bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+      const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
+      tileindex_t goal = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
+      return goalValidityChecker(bot, map, goal);
+    },
+    pathtype);
 }
 
 std::shared_ptr<Task> taskFetchResources()
 {
+  auto testIsValidResourceFetchingLocation = [](const Bot *bot, const Map *map, tileindex_t goal) {
+    if (map->tileAt(goal).getType() == TileType::RESOURCE) return true;
+    auto neighbours = map->getValidNeighbours(goal);
+    return std::ranges::any_of(neighbours, [=](tileindex_t t) {
+      return map->tileAt(t).getType() == TileType::RESOURCE;
+    });
+  };
+
   return std::make_shared<Selector>(
     testIsAgentFullOfResources(),
-    taskLog("Not enough resources", TaskResult::FAILURE),
     std::make_shared<Sequence>(
-      taskMoveTo(pathing::getResourceFetchingLocation, "resource-fetching-site"),
+      taskMoveTo(pathing::getResourceFetchingLocation, testIsValidResourceFetchingLocation, "resource-fetching-site"),
       taskLog("Collecting resources"),
       taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
     )
@@ -180,21 +260,51 @@ std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective()
 
 std::shared_ptr<Task> taskBuildCity()
 {
+  auto testIsPathGoalValidConstructionTile = [](Blackboard &bb) {
+    const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
+    tileindex_t goal = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
+    return map->tileAt(goal).getType() == TileType::EMPTY;
+  };
+
   return std::make_shared<Sequence>(
     taskFetchResources(),
-    taskLog("Enough resources, moving to city construction tile"),
-    taskMoveTo(goalSupplierFromAgentObjective(), "city-construction-site"),
+    //taskLog("Enough resources, moving to city construction tile"),
+    taskMoveTo(goalSupplierFromAgentObjective(), testIsPathGoalValidConstructionTile, "city-construction-site"),
     taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
   );
 }
 
 std::shared_ptr<Task> taskFeedCity()
 {
+  auto testIsGoalValidFriendlyCityTile = [](Blackboard &bb) {
+    const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
+    tileindex_t goal = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
+    return map->tileAt(goal).getType() == TileType::ALLY_CITY;
+  };
+
   return std::make_shared<Sequence>(
     taskFetchResources(),
-    taskLog("Enough resources, moving to supplying city tile"),
-    taskMoveTo(goalSupplierFromAgentObjective(), "city-supplying-site")
+    //taskLog("Enough resources, moving to supplying city tile"),
+    taskMoveTo(goalSupplierFromAgentObjective(), testIsGoalValidFriendlyCityTile, "city-supplying-site")
   );
+}
+
+std::shared_ptr<Task> taskMoveToBlockTile() {
+  auto isValidBlockingTile = [](Blackboard &bb) {
+    const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
+    tileindex_t goal = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
+    return map->tileAt(goal).getType() == TileType::EMPTY;
+  };
+
+  return taskMoveTo(goalSupplierFromAgentObjective(), isValidBlockingTile, "go-block-tile-strategy");
+}
+
+std::shared_ptr<Task> taskMoveToClosestFriendlyCity() {
+  auto testIsGoalValidFriendlyCityTile = [](const Bot *bot, const Map *map, tileindex_t goal) {
+    return map->tileAt(goal).getType() == TileType::ALLY_CITY;
+  };
+
+  return taskMoveTo(pathing::getBestNightTimeLocation, testIsGoalValidFriendlyCityTile, "closest-city");
 }
 
 std::shared_ptr<Task> taskCityCreateBot()
@@ -236,7 +346,7 @@ public:
     return m_strategies[objective.type]->run(blackboard);
   }
 
-  void addStrategy(BotObjective::ObjectiveType objectiveType, std::shared_ptr<Task> strategy)
+  void addStrategy(BotObjective::ObjectiveType objectiveType, const std::shared_ptr<Task>& strategy)
   {
     m_strategies.emplace(objectiveType, strategy);
   }
@@ -247,15 +357,15 @@ std::shared_ptr<Task> behaviorWorker()
   auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
   taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY, taskBuildCity());
   taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY, taskFeedCity());
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskMoveTo(goalSupplierFromAgentObjective(), "go-block-path-strategy"));
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskMoveToBlockTile());
 
   return
     std::make_shared<Alternative>(
       testIsDawnOrNight(),
-      taskMoveTo(pathing::getBestNightTimeLocation, "closest-city"),
+      taskMoveToClosestFriendlyCity(),
       std::make_shared<Sequence>(
         taskPlaySquadProvidedObjective,
-        taskLog("Agent had nothing to do")
+        taskLog("Agent had nothing to do!")
       )
     );
 }

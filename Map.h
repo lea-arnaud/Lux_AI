@@ -36,7 +36,7 @@ public:
 	std::pair<int, int> getTilePosition(tileindex_t tile) const;
 	kit::DIRECTIONS getDirection(tileindex_t from, tileindex_t to) const;
 	tileindex_t getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction) const;
-	std::vector<tileindex_t> getValidNeighbours(tileindex_t source) const;
+	std::vector<tileindex_t> getValidNeighbours(tileindex_t source, bool canMoveOverCity = true) const;
 	bool isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const;
 };
 
