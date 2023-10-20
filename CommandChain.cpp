@@ -4,6 +4,7 @@
 
 #include "GameRules.h"
 #include "Log.h"
+#include "Pathing.h"
 
 Commander::Commander()
   : m_globalBlackboard(std::make_shared<Blackboard>())
@@ -26,16 +27,14 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
 {
     static size_t turnNumber = 0;
     std::vector<TurnOrder> orders;
-    std::vector<tileindex_t> agentsPosition;
-
-    std::for_each(gameState.bots.begin(), gameState.bots.end(), [&agentsPosition, &gameState](Bot &bot) { agentsPosition.push_back(gameState.map.getTileIndex(bot)); });
 
     turnNumber++;
-
     LOG("Turn " << turnNumber);
 
     int nbAgents = 0;
     size_t friendlyCityCount = std::count_if(gameState.bots.begin(), gameState.bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
+    std::vector<tileindex_t> agentsPosition;
+    std::for_each(gameState.bots.begin(), gameState.bots.end(), [&agentsPosition, &gameState](Bot &bot) { agentsPosition.push_back(gameState.map.getTileIndex(bot)); });
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, &gameState);
@@ -59,8 +58,9 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
 
     // fill in the orders list through agents behavior trees
-    std::for_each(availableAgents.begin(), availableAgents.end(), [this](Bot *agent) {
-        BotObjective objective{ BotObjective::ObjectiveType::BUILD_CITY, 0/*TODO find the best construction tile*/ };
+    std::for_each(availableAgents.begin(), availableAgents.end(), [&,this](Bot *agent) {
+        tileindex_t buildTile = pathing::getBestCityBuildingLocation(agent, &gameState.map);
+        BotObjective objective{ BotObjective::ObjectiveType::BUILD_CITY, buildTile };
         agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
         agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         agent->getBlackboard().setParentBoard(m_globalBlackboard);

@@ -30,8 +30,13 @@ std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)>
 // agent by its squad into the agent's blackboard "AGENT_OBJECTIVE" entry
 std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective();
 
-std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(Blackboard &)> &&goalSupplier, const std::string &pathtype);
-std::shared_ptr<Task> taskMoveTo(std::function<tileindex_t(const Bot *, const Map *)> &&goalSupplier, const std::string &pathtype);
+using GoalSupplier = std::function<tileindex_t(Blackboard &)>;
+using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, const Map *)>;
+using GoalValidityChecker = std::function<bool(Blackboard &)>;
+using SimpleGoalValidityChecker = std::function<bool(const Bot *, const Map *, tileindex_t)>;
+
+std::shared_ptr<Task> taskMoveTo(GoalSupplier &&goalSupplier, GoalValidityChecker &&goalValidityChecker, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, const std::string &pathtype);
 std::shared_ptr<Task> taskFetchResources();
 std::shared_ptr<Task> taskBuildCity();
 std::shared_ptr<Task> taskFeedCity();
