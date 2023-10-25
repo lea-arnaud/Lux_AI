@@ -70,7 +70,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
             default: break;
         };
         BotObjective objective{ mission, targetTile };
-        (agent.first)->getBlackboard().insertData(bbn::AGENT_SELF, agent);
+        (agent.first)->getBlackboard().insertData(bbn::AGENT_SELF, agent.first);
         (agent.first)->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         (agent.first)->getBlackboard().setParentBoard(m_globalBlackboard);
         (agent.first)->act();
