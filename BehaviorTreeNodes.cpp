@@ -36,6 +36,19 @@ std::shared_ptr<Task> testHasTeamEnoughAgents()
     return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 8;
   });
 }
+std::shared_ptr<Task> testHasTeamEnoughWorkers()
+{
+    return std::make_shared<Test>([](Blackboard &bb) {
+        return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 5;
+    });
+}
+std::shared_ptr<Task> testHasTeamEnoughCarts()
+{
+    return std::make_shared<Test>([](Blackboard &bb) {
+        return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 1;
+    });
+}
+
 
 std::shared_ptr<Task> testHasTeamReachedAgentCapacity()
 {
@@ -321,19 +334,39 @@ std::shared_ptr<Task> taskMoveToClosestFriendlyCity() {
     "closest-city");
 }
 
-std::shared_ptr<Task> taskCityCreateBot()
+// The city create a worker if there is less than 7 workers
+std::shared_ptr<Task> taskCityCreateWorker()
 {
   return std::make_shared<Selector>(
-    testHasTeamEnoughAgents(),
+    testHasTeamEnoughWorkers(),
     testHasTeamReachedAgentCapacity(),
     taskLog("There are not enough bot, creating worker", TaskResult::FAILURE),
     taskPlayAgentTurn([](Blackboard &bb) {
       const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
       bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
+      bb.updateData(bbn::GLOBAL_WORKERS, bb.getData<int>(bbn::GLOBAL_WORKERS) + 1);
       return TurnOrder{ TurnOrder::CREATE_WORKER, bot };
     })
   );
 }
+
+// Create a cart if there is less than 1 cart
+std::shared_ptr<Task> taskCityCreateCart()
+{
+    return std::make_shared<Selector>(
+      testHasTeamEnoughCarts(),
+      testHasTeamReachedAgentCapacity(),
+      taskLog("Creating cart", TaskResult::FAILURE),
+      taskPlayAgentTurn([](Blackboard &bb) {
+        const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+        bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
+        bb.updateData(bbn::GLOBAL_WORKERS, bb.getData<int>(bbn::GLOBAL_WORKERS) + 1);
+        return TurnOrder{ TurnOrder::CREATE_CART, bot };
+    })
+    );
+}
+
+
 
 std::shared_ptr<Task> taskCityResearch()
 {
@@ -347,7 +380,8 @@ std::shared_ptr<Task> taskCityResearch()
 std::shared_ptr<Task> behaviorCity()
 {
   return std::make_shared<Sequence>(
-    taskCityCreateBot(),
+    taskCityCreateWorker(),
+    taskCityCreateCart(),
     taskCityResearch()
   );
 }
