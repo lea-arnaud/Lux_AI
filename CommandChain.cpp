@@ -38,10 +38,11 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     int nbAgents = 0;
     int nbWorkers = 0;
     int nbCarts = 0;
+    GameState *gameState{ m_gameState };
 
-    size_t friendlyCityCount = std::count_if(gameState.bots.begin(), gameState.bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
+    size_t friendlyCityCount = std::count_if(gameState->bots.begin(), gameState->bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
     std::vector<tileindex_t> agentsPosition;
-    std::ranges::transform(gameState.bots, std::back_inserter(agentsPosition), [&gameState](Bot &bot) { return gameState.map.getTileIndex(bot); });
+    std::ranges::transform(gameState->bots, std::back_inserter(agentsPosition), [&gameState](Bot &bot) { return gameState->map.getTileIndex(bot); });
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, m_gameState);
