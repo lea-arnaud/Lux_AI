@@ -34,39 +34,40 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     int nbAgents = 0;
     int nbWorkers = 0;
     int nbCarts = 0;
+    int nbCities = 0;
 
-    size_t friendlyCityCount = std::count_if(gameState.bots.begin(), gameState.bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
     std::vector<tileindex_t> agentsPosition;
-    std::ranges::transform(gameState.bots, std::back_inserter(agentsPosition), [&gameState](Bot &bot) { return gameState.map.getTileIndex(bot); });
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, &gameState);
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &gameState.map);
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
     m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, gameState.playerResearchPoints[Player::ALLY]);
-    m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, friendlyCityCount);
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPosition);
 
     // collect agents that can act right now
     std::vector<std::pair<Bot*,Archetype>> availableAgents;
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
-            if (agent->getType() == UNIT_TYPE::WORKER) {
+            if (agent->getType() == UNIT_TYPE::CITY) {
+              nbCities++;
+            } else {
+                agentsPosition.push_back(gameState.map.getTileIndex(*agent));
                 nbAgents += 1;
-                nbWorkers += 1;
-            }
-            else if (agent->getType() == UNIT_TYPE::CART) {
-                nbAgents += 1;
-                nbCarts += 1;
+                if (agent->getType() == UNIT_TYPE::WORKER)
+                    nbWorkers += 1;
+                else if (agent->getType() == UNIT_TYPE::CART)
+                    nbCarts += 1;
             }
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                availableAgents.push_back(std::pair<Bot*, Archetype>(agent, squad.getArchetype()));
+                availableAgents.emplace_back(agent, squad.getArchetype());
         }
     }
 
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
     m_globalBlackboard->insertData(bbn::GLOBAL_WORKERS, nbWorkers);
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
+    m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, nbCities);
 
 
     // fill in the orders list through agents behavior trees

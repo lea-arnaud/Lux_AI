@@ -1,10 +1,15 @@
 #include "Pathing.h"
 
+#include <algorithm>
+
 #include "GameRules.h"
+#include "Log.h"
 
 namespace pathing
 {
 
+// TODO move these constants in the functions that uses them, or into structures names after the function
+// currently it is hard to know exactly what their purpose are
 //static constexpr float ADJACENT_CITIES_WEIGHT = 10.0f;
 static constexpr float ADJACENT_CITIES_WEIGHT = 0.0f; // TODO restore with better pathfinding
 static constexpr float RESOURCE_NB_WEIGHT = 1.0f;
@@ -90,22 +95,43 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
   return bestTile;
 }
 
-tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map)
+tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::vector<tileindex_t> &occupiedTiles)
 {
-  // currently only considering cities
-  // it would be better to give resource clusters a score too
-  tileindex_t bestTile = -1;
+  /*
+   * At night, agents try to reach the nearest city to avoid dying
+   * - city tiles with adjacent resources are better since they will
+   *   collect resources if at least one agent is in them.
+   * - it is better to spread agents, as more city tiles will be able
+   *   to collect at the same time
+   */
+
+  constexpr float distanceWeight = -.2f;
+  constexpr float unreachableFactor = -1000.f;
+  constexpr float hasAdjacentResourcesFactor = +5.f;
+  constexpr float isTileOccupiedFactor = -8.f;
+
   tileindex_t botTile = map->getTileIndex(*bot);
-  size_t minDistance = std::numeric_limits<size_t>::max();
+  tileindex_t bestTile = botTile;
+  float bestScore = std::numeric_limits<float>::lowest();
   for (tileindex_t i = 0; i < map->getMapSize(); i++) {
     if (map->tileAt(i).getType() != TileType::ALLY_CITY)
       continue;
+    bool hasAdjacentResources = std::ranges::any_of(map->getValidNeighbours(i),
+      [&](tileindex_t n) { return map->tileAt(n).getType() == TileType::RESOURCE; });
     size_t dist = map->distanceBetween(i, botTile);
-    if (dist < minDistance) {
-      minDistance = dist;
+    bool isTileOccupied = std::ranges::count(occupiedTiles, i) - (i == botTile) > 0;
+    float tileScore = 0
+      + distanceWeight * (float)dist
+      + unreachableFactor * (dist > game_rules::NIGHT_DURATION)
+      + hasAdjacentResourcesFactor * hasAdjacentResources
+      + isTileOccupiedFactor * isTileOccupied;
+    
+    if (tileScore > bestScore) {
+      bestScore = tileScore;
       bestTile = i;
     }
   }
+
   return bestTile;
 }
 
