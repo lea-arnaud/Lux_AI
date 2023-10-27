@@ -53,9 +53,12 @@ struct SquadRequirement
 
 struct EnemySquadInfo
 {
-	Archetype type;
+	Archetype mission;
 	int pos_x;
 	int pos_y;
+	size_t botNb;
+	size_t cartNb;
+	EnemySquadInfo(size_t bNb, size_t cNb, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), pos_x(x), pos_y(y), mission(order) {}
 };
 
 class Strategy
@@ -63,8 +66,8 @@ class Strategy
 public:
 	Strategy() {};
 
-	std::map<Archetype, size_t> getEnemyStance();
-	std::vector<SquadRequirement> adaptToEnemy(std::map<Archetype, size_t> enemyStance);
+	std::vector<EnemySquadInfo> getEnemyStance();
+	std::vector<SquadRequirement> adaptToEnemy(std::vector<EnemySquadInfo> enemyStance);
 	std::vector<Squad> createSquads(std::vector<SquadRequirement> agentRepartition, GameState* gameState);
 };
 

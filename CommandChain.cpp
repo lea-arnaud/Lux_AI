@@ -99,16 +99,16 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     return orders;
 }
 
-std::map<Archetype, size_t> Strategy::getEnemyStance()
+std::vector<EnemySquadInfo> Strategy::getEnemyStance()
 {
-    std::map<Archetype, size_t> enemySquads{};
+    std::vector<EnemySquadInfo> enemySquads{};
     for (int arch = Archetype::CITIZEN; arch < Archetype::TROUBLEMAKER; arch++) {
-        enemySquads.emplace(std::pair<Archetype, size_t>((Archetype)arch, 0));
+        enemySquads.push_back(EnemySquadInfo{ 0,0,5,5,Archetype::ROADMAKER });
     }
     return enemySquads;
 }
 
-std::vector<SquadRequirement> Strategy::adaptToEnemy(std::map<Archetype, size_t> enemyStance)
+std::vector<SquadRequirement> Strategy::adaptToEnemy(std::vector<EnemySquadInfo> enemyStance)
 {
     //sorted by priority in the end
     return std::vector<SquadRequirement>{SquadRequirement{ 1,0,1,5,5, Archetype::CITIZEN }};
