@@ -9,21 +9,25 @@
 Commander::Commander()
   : m_globalBlackboard(std::make_shared<Blackboard>())
 {
-    m_squads.push_back({}); // to be removed, the initial implementation uses one squad only
+    m_squads = std::vector<Squad>();
+    //m_squads.push_back(Squad{}); // to be removed, the initial implementation uses one squad only
 }
 
-void Commander::updateHighLevelObjectives(GameState &state, const GameStateDiff &diff)
+void Commander::updateHighLevelObjectives(GameState *state, const GameStateDiff &diff)
 {
+    m_gameState = state;
+    rearrangeSquads();
+    if (m_squads.size() == 0) return;
     Squad &firstSquad = m_squads[0];
     firstSquad.getAgents().clear();
-    for (Bot &bot : state.bots) {
+    for (Bot &bot : state->bots) {
       if (bot.getTeam() == Player::ALLY)
         firstSquad.getAgents().push_back(&bot);
     }
 }
 
 
-std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
+std::vector<TurnOrder> Commander::getTurnOrders()
 {
     static size_t turnNumber = 0;
     std::vector<TurnOrder> orders;
@@ -32,15 +36,16 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     LOG("Turn " << turnNumber);
 
     int nbAgents = 0;
-    size_t friendlyCityCount = std::count_if(gameState.bots.begin(), gameState.bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
+    size_t friendlyCityCount = std::count_if(m_gameState->bots.begin(), m_gameState->bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
     std::vector<tileindex_t> agentsPosition;
-    std::for_each(gameState.bots.begin(), gameState.bots.end(), [&agentsPosition, &gameState](Bot &bot) { agentsPosition.push_back(gameState.map.getTileIndex(bot)); });
+    GameState *gameState{ m_gameState };
+    std::for_each(m_gameState->bots.begin(), m_gameState->bots.end(), [&agentsPosition, &gameState](Bot &bot) { agentsPosition.push_back(gameState->map.getTileIndex(bot)); });
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
-    m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, &gameState);
-    m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &gameState.map);
+    m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, m_gameState);
+    m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &m_gameState->map);
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
-    m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, gameState.playerResearchPoints[Player::ALLY]);
+    m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, m_gameState->playerResearchPoints[Player::ALLY]);
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, friendlyCityCount);
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPosition);
 
@@ -63,14 +68,14 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
         switch (agent.second) {
             case Archetype::CITIZEN:    //TODO implement CITIZEN/SETTLER difference in pathing::getBestCityBuildingLocation algorithm
-            case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent.first, &gameState.map); break;
-            case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getResourceFetchingLocation(agent.first, &gameState.map); break;
+            case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent.first, &m_gameState->map); break;
+            case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getResourceFetchingLocation(agent.first, &m_gameState->map); break;
             case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
                 //case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::BUILD_CITY; break; //TODO implement ROADMAKER cart behaviour
             default: break;
         };
         BotObjective objective{ mission, targetTile };
-        (agent.first)->getBlackboard().insertData(bbn::AGENT_SELF, agent);
+        (agent.first)->getBlackboard().insertData(bbn::AGENT_SELF, agent.first);
         (agent.first)->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         (agent.first)->getBlackboard().setParentBoard(m_globalBlackboard);
         (agent.first)->act();
@@ -84,9 +89,57 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
 
 std::map<Archetype, size_t> Strategy::getEnemyStance()
 {
-    std::map<Archetype, size_t> enemySquads;
+    std::map<Archetype, size_t> enemySquads{};
     for (int arch = Archetype::CITIZEN; arch < Archetype::TROUBLEMAKER; arch++) {
         enemySquads.emplace(std::pair<Archetype, size_t>((Archetype)arch, 0));
     }
     return enemySquads;
+}
+
+std::vector<SquadRequirement> Strategy::adaptToEnemy(std::map<Archetype, size_t> enemyStance)
+{
+    //sorted by priority in the end
+    return std::vector<SquadRequirement>{SquadRequirement{ 1,0,1,5,5, Archetype::CITIZEN }};
+}
+
+std::vector<Squad> Strategy::createSquads(std::vector<SquadRequirement> squadRequirements, GameState* gameState) //not optimal, could do clustering to be more efficient
+{
+    std::vector<Squad> newSquads{};
+    std::vector<Bot *> botsUnassigned{};
+    LOG("Squad : ");
+    for_each(gameState->bots.begin(), gameState->bots.end(), [&botsUnassigned](Bot bot) {botsUnassigned.push_back(&bot); });
+
+    for_each(squadRequirements.begin(), squadRequirements.end(), [&botsUnassigned, &newSquads](SquadRequirement sr) 
+    {
+        std::vector<std::pair<Bot*, size_t>> bestBots{sr.botNb};
+
+        //Get the sr.botNb closest bots for this SquadRequirement
+        for_each(botsUnassigned.begin(), botsUnassigned.end(), [&bestBots, &sr](Bot* bot)
+        {
+            if (bestBots.size() < sr.botNb) bestBots.push_back(std::pair<Bot*, size_t>(bot, (size_t)(std::abs(sr.dest_x - bot->getX()) + std::abs(sr.dest_y - bot->getY()))));
+            else 
+            {
+                size_t dist = (size_t)(std::abs(sr.dest_x - bot->getX()) + std::abs(sr.dest_y - bot->getY()));
+                size_t scoreDist = bestBots[0].second;
+                size_t index = 0;
+                for (size_t i = 1; i < sr.botNb; i++) 
+                {
+                    if (bestBots[i].second < scoreDist) 
+                    {
+                        index = i;
+                        scoreDist = bestBots[i].second;
+                    }
+                }
+                if (dist < scoreDist) bestBots[index] = std::pair<Bot*, size_t>(bot, dist);
+            }
+        });
+        std::vector<Bot *> nSquad{};
+        for_each(bestBots.begin(), bestBots.end(), [&nSquad](std::pair<Bot*, size_t> v)
+        {
+            //LOG(v.first->getId() << " : " << v.first->getX() << ";" << v.first->getY());
+            nSquad.push_back(v.first);
+        });
+        newSquads.push_back(Squad(nSquad, sr.mission));
+    });
+    return newSquads;
 }

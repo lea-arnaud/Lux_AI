@@ -31,7 +31,7 @@ def run_game(seed):
         "--seed="+str(seed),
         "--loglevel=0",
         "--statefulReplay",
-        f"--maxtime={1000000 if no_timeout else 3000}",
+        f"--maxtime={10 if no_timeout else 10}",
         bot1, bot2
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
     if result.stderr != '' and not silent:

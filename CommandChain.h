@@ -31,6 +31,7 @@ enum Archetype
 class Squad
 {
 public:
+	Squad(std::vector<Bot *> bots, Archetype order) : m_agents(bots), type(order) {}
 	std::vector<Bot *> &getAgents() { return m_agents; }
 	Archetype getArchetype() { return type; }
 
@@ -39,13 +40,32 @@ private:
 	Archetype type;
 };
 
+struct SquadRequirement
+{
+	size_t botNb;
+	size_t cartNb;
+	size_t priority;
+	int dest_x;
+	int dest_y;
+	Archetype mission;
+	SquadRequirement(size_t bNb, size_t cNb, size_t p, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), dest_x(x), dest_y(y), mission(order){}
+};
+
+struct EnemySquadInfo
+{
+	Archetype type;
+	int pos_x;
+	int pos_y;
+};
+
 class Strategy
 {
 public:
 	Strategy() {};
 
 	std::map<Archetype, size_t> getEnemyStance();
-	std::vector<Squad> adaptToEnemy(std::map<Archetype, size_t> enemyStance) {};
+	std::vector<SquadRequirement> adaptToEnemy(std::map<Archetype, size_t> enemyStance);
+	std::vector<Squad> createSquads(std::vector<SquadRequirement> agentRepartition, GameState* gameState);
 };
 
 class Commander
@@ -54,16 +74,18 @@ private:
 	std::vector<Squad> m_squads;
 	std::shared_ptr<Blackboard> m_globalBlackboard;
 
+	GameState *m_gameState;
+
 	Strategy currentStrategy;
 
 public:
   Commander();
-  void updateHighLevelObjectives(GameState &state, const GameStateDiff &diff);
-  std::vector<TurnOrder> getTurnOrders(GameState &gameState);
+  void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);
+  std::vector<TurnOrder> getTurnOrders();
 
   void rearrangeSquads() 
   {
-	  m_squads = currentStrategy.adaptToEnemy(currentStrategy.getEnemyStance());
+	  m_squads = currentStrategy.createSquads((currentStrategy.adaptToEnemy(currentStrategy.getEnemyStance())), m_gameState);
   }
 
   std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
