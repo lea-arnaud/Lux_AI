@@ -10,15 +10,16 @@ static constexpr float ADJACENT_CITIES_WEIGHT = 0.0f; // TODO restore with bette
 static constexpr float RESOURCE_NB_WEIGHT = 1.0f;
 static constexpr float DISTANCE_WEIGHT = -1.0f;
 
-bool checkPathValidity(const std::vector<tileindex_t> &path, const GameState &gameState, size_t moveAheadCount)
+bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, const std::vector<tileindex_t> &botPositions, size_t moveAheadCount)
 {
   for (size_t i = 0; i < std::min(moveAheadCount, path.size()); i++) {
-    if (gameState.map.tileAt(path[i]).getType() == TileType::ENEMY_CITY)
+    tileindex_t nextTileIdx = path[path.size() - i - 1];
+    const Tile &nextTile = map.tileAt(nextTileIdx);
+    if (nextTile.getType() == TileType::ENEMY_CITY)
       return false; // a new city has been built
-    if (gameState.map.tileAt(path[i]).getType() != TileType::ALLY_CITY) {
-      std::optional<const Bot*> blockingBot = gameState.getEntityAt(path[i]);
-      if (blockingBot.has_value() && (i == 0 || blockingBot.value()->getTeam() == Player::ENEMY))
-        return false; // a friendly bot is right in front, or an enemy bot stepped on our path
+    if (nextTile.getType() != TileType::ALLY_CITY) {
+      if (std::ranges::find(botPositions, nextTileIdx) != botPositions.end())
+        return false; // a bot is right in front
     }
   }
   return true;

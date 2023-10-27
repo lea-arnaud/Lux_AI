@@ -2,6 +2,8 @@
 
 #include "Log.h"
 
+static constexpr std::array NEIGHBOUR_DIRECTIONS = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST };
+
 kit::DIRECTIONS Map::getDirection(tileindex_t from, tileindex_t to) const
 {
     auto [x1, y1] = getTilePosition(from);
@@ -26,10 +28,9 @@ tileindex_t Map::getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction)
 
 std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source, bool canMoveOverCity) const
 {
-  static const std::vector<kit::DIRECTIONS> neighbourDirections = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST }; // FIX should not be a method member, should be an array outside
   std::vector<tileindex_t> neighbours{};
 
-  for (kit::DIRECTIONS direction : neighbourDirections) {
+  for (kit::DIRECTIONS direction : NEIGHBOUR_DIRECTIONS) {
     if (!isValidNeighbour(source, direction)) continue;
 
     tileindex_t neighbourIndex = getTileNeighbour(source, direction);

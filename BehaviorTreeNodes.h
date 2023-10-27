@@ -35,8 +35,8 @@ using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, const Map *)>;
 using GoalValidityChecker = std::function<bool(Blackboard &)>;
 using SimpleGoalValidityChecker = std::function<bool(const Bot *, const Map *, tileindex_t)>;
 
-std::shared_ptr<Task> taskMoveTo(GoalSupplier &&goalSupplier, GoalValidityChecker &&goalValidityChecker, const std::string &pathtype);
-std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(GoalSupplier &&goalSupplier, GoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype);
 std::shared_ptr<Task> taskFetchResources();
 std::shared_ptr<Task> taskBuildCity();
 std::shared_ptr<Task> taskFeedCity();

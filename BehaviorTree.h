@@ -43,6 +43,16 @@ public:
 		data[key] = value;
 	}
 
+	void updateData(const std::string& key, const std::any& value) {
+	  if(data.contains(key)) {
+		data[key] = value;
+	  } else if(parent != nullptr) {
+		parent->updateData(key, value);
+	  } else {
+		throw std::runtime_error("Tried to update non-existing key: " + key);
+	  }
+	}
+
 	void removeData(const std::string &key) {
 		data.erase(key);
 	}

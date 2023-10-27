@@ -20,7 +20,7 @@ std::ostream &operator<<(std::ostream &out, const std::pair<T, U> &pair)
 template<class T>
 std::ostream &operator<<(std::ostream &out, const std::vector<T> &vector)
 {
-  for (const T &t : vector) out << t << ",";
+  for (const T &t : vector) out << t << " ";
   return out;
 }
 
