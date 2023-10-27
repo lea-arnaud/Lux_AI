@@ -1,6 +1,8 @@
 #ifndef COMMAND_CHAIN_H
 #define COMMAND_CHAIN_H
 
+#include <utility>
+
 #include "Bot.h"
 #include "GameState.h"
 #include "TurnOrder.h"
@@ -31,9 +33,9 @@ enum Archetype
 class Squad
 {
 public:
-	Squad(std::vector<Bot *> bots, Archetype order) : m_agents(bots), type(order) {}
+	Squad(std::vector<Bot *> bots, Archetype order) : m_agents(std::move(bots)), type(order) {}
 	std::vector<Bot *> &getAgents() { return m_agents; }
-	Archetype getArchetype() { return type; }
+	Archetype getArchetype() const { return type; }
 
 private:
 	std::vector<Bot *> m_agents;
@@ -51,6 +53,12 @@ struct SquadRequirement
 	SquadRequirement(size_t bNb, size_t cNb, size_t p, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), dest_x(x), dest_y(y), mission(order){}
 };
 
+struct CityCluster {
+	float center_x;
+	float center_y;
+	size_t cityTileCount;
+};
+
 struct EnemySquadInfo
 {
 	Archetype mission;
@@ -64,11 +72,15 @@ struct EnemySquadInfo
 class Strategy
 {
 public:
-	Strategy() {};
+	Strategy() = default;
 
-	std::vector<EnemySquadInfo> getEnemyStance();
-	std::vector<SquadRequirement> adaptToEnemy(std::vector<EnemySquadInfo> enemyStance);
-	std::vector<Squad> createSquads(std::vector<SquadRequirement> agentRepartition, GameState* gameState);
+	std::vector<EnemySquadInfo> getEnemyStance(const GameState &gameState);
+	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance);
+	std::vector<Squad> createSquads(const std::vector<SquadRequirement> &agentRepartition, GameState* gameState);
+
+private:
+  int getDistanceToClosestResource(int x, int y, const Map &map);
+  std::array<std::vector<CityCluster>, Player::COUNT> getCityClusters(const GameState &gameState);
 };
 
 class Commander
@@ -86,14 +98,11 @@ public:
   void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);
   std::vector<TurnOrder> getTurnOrders();
 
-  void rearrangeSquads() 
-  {
-	  m_squads = currentStrategy.createSquads((currentStrategy.adaptToEnemy(currentStrategy.getEnemyStance())), m_gameState);
-  }
+  void rearrangeSquads();
 
-  std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
+	std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
 
-  void commandSquads(bool interrupt) {};
+  void commandSquads(bool interrupt) {}
 };
 
 #endif
