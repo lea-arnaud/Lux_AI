@@ -3,8 +3,9 @@
 
 #include <array>
 #include <type_traits>
-#include <algorithm>
 #include <vector>
+#include <algorithm>
+#include <string>
 
 template <class T>
 constexpr T absolute(const T &x, std::enable_if_t<std::is_arithmetic_v<T>> * = nullptr)
@@ -16,7 +17,8 @@ template <unsigned int W, unsigned int H>
 class InfluenceTemplate
 {
   friend class InfluenceMap;
-  std::array<float, W *H> m_map;
+  std::array<float, W * H> m_map;
+
 public:
   constexpr InfluenceTemplate(int x1, int y1, float influence, float (*propagationFunction)(float, float))
   {
@@ -27,12 +29,21 @@ public:
       m_map[i] = propagationFunction(influence, static_cast<float>(distance));
     }
   }
-};
 
-constexpr InfluenceTemplate<3, 3> test{ 1, 1, 1.0f,
-  [](float influence, float distance) {
-    return 0.0f;
-  } };
+  std::string toJson() const
+  {
+    std::string jsonStr = "{\n\t\"w\" : " + std::to_string(W) + ",\n\t\"h\" : " + std::to_string(H) + ",\n";
+    jsonStr += "\t\"map\": [";
+    for (size_t i = 0; i < m_map.size(); ++i) {
+      jsonStr += std::to_string(m_map[i]);
+      if (i < m_map.size() - 1) {
+        jsonStr += ", ";
+      }
+    }
+    jsonStr += "]\n}";
+    return jsonStr;
+  }
+};
 
 // TODO: rajouter des verifications
 
@@ -65,16 +76,16 @@ public:
   {
     std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
       [weight](float currentScore, float otherScore) {
-      return currentScore + (otherScore * weight);
-    });
+        return currentScore + (otherScore * weight);
+      });
   }
 
   void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f)
   {
     std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
       [weight](float currentScore, float otherScore) {
-      return currentScore * (otherScore * weight);
-    });
+        return currentScore * (otherScore * weight);
+      });
   }
 
   template <unsigned int W, unsigned int H>
@@ -86,12 +97,18 @@ public:
     for (int i = 0; i < W * H; ++i) {
       int x1 = i / W;
       int y1 = i % W;
-      m_map[getIndex(x1 + deltaX, y1 + deltaY)] += influenceTemplate.m_map[i] * weight;
+
+      int x2 = x1 + deltaX;
+      int y2 = y1 + deltaY;
+
+      if (x2 < 0 || x2 >= m_width || y2 < 0 || y2 >= m_height) continue;
+
+      m_map[getIndex(x2, y2)] += influenceTemplate.m_map[i] * weight;
     }
   }
 
   template <unsigned int W, unsigned int H>
-  void multiplyTemplateAtLocation(int x1, int y1, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  void multiplyTemplateAtLocation(int x, int y, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
     int deltaX = x - W / 2;
     int deltaY = y - H / 2;
@@ -99,7 +116,13 @@ public:
     for (int i = 0; i < W * H; ++i) {
       int x1 = i / W;
       int y1 = i % W;
-      m_map[getIndex(x1 + deltaX, y1 + deltaY)] *= influenceTemplate.m_map[i] * weight;
+
+      int x2 = x1 + deltaX;
+      int y2 = y1 + deltaY;
+
+      if (x2 < 0 || x2 >= m_width || y2 < 0 || y2 >= m_height) continue;
+
+      m_map[getIndex(x2, y2)] *= influenceTemplate.m_map[i] * weight;
     }
   }
 
@@ -109,7 +132,8 @@ public:
     float minVal = *std::min_element(m_map.begin(), m_map.end());
     float maxVal = *std::max_element(m_map.begin(), m_map.end());
 
-    if (minVal == maxVal) return;
+    if (minVal == maxVal)
+      return;
 
     std::transform(m_map.begin(), m_map.end(), m_map.begin(),
       [minVal, maxVal](float score) { return (score - minVal) / (maxVal - minVal); });
@@ -126,6 +150,38 @@ public:
     auto maxIterator = std::max_element(m_map.begin(), m_map.end());
     return static_cast<int>(std::distance(m_map.begin(), maxIterator));
   }
+
+  std::string toJson() const
+  {
+    std::string jsonStr = "{\n\t\"w\" : " + std::to_string(m_width) + ",\n\t\"h\" : " + std::to_string(m_height) + ",\n";
+    jsonStr += "\t\"map\": [";
+    for (size_t i = 0; i < m_map.size(); ++i) {
+      jsonStr += std::to_string(m_map[i]);
+      if (i < m_map.size() - 1) {
+        jsonStr += ", ";
+      }
+    }
+    jsonStr += "]\n}";
+    return jsonStr;
+  }
 };
+
+constexpr InfluenceTemplate<9, 9> agent{ 4, 4, 1.0f,
+                                       [](float influence, float distance)
+                                       {
+                                         return influence - (influence  * distance / 8.0f);
+                                       } };
+
+constexpr InfluenceTemplate<9, 9> ressource{ 4, 4, 1.0f,
+                                       [](float influence, float distance)
+                                       {
+                                         return influence - (influence  * distance / 8.0f);
+                                       } };
+
+constexpr InfluenceTemplate<3, 3> city{ 1, 1, 0.0f,
+                                       [](float influence, float distance)
+                                       {
+                                         return distance == 1.0f ? 1.0f : distance == 0.0f ? -4.0f : 0.0f;
+                                       } };
 
 #endif
