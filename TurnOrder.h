@@ -23,7 +23,15 @@ struct TurnOrder
 
   union
   {
-    tileindex_t targetTile;
+      struct
+      {
+         tileindex_t targetTile;
+
+      };
+      struct
+      {
+          size_t researchVCount;
+      };
   };
 
   std::string getAsString(const Map &map);

@@ -15,7 +15,7 @@ struct GameState
   size_t playerResearchPoints[2];
 
   std::optional<const Bot*> getEntityAt(tileindex_t tile) const { auto [x, y] = map.getTilePosition(tile); return getEntityAt(x, y); }
-  std::optional<const Bot*> getEntityAt(int x, int y) const; // TODO add a time frame, to get prioritized planning to work
+  std::optional<const Bot*> getEntityAt(int x, int y) const;
 };
 
 struct GameStateDiff

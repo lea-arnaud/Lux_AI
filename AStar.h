@@ -10,6 +10,14 @@
 
 enum Category { CLOSED = 0, OPEN, UNVISITED };
 
+using pathflags_t = uint8_t;
+
+namespace PathFlags
+{
+static constexpr pathflags_t NONE = 0;
+static constexpr pathflags_t CAN_MOVE_THROUGH_FRIENDLY_CITIES = 1;
+}
+
 struct AStarNode
 {
 	tileindex_t nodeIndex;
@@ -34,7 +42,7 @@ struct AStarExplorationEntry {
   double fScore;
 };
 
-inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileindex_t goalIndex, const std::vector<tileindex_t> &agentsPosition, bool canMoveOverCity = true)
+inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileindex_t goalIndex, const std::vector<tileindex_t> &agentsPosition, pathflags_t pathFlags)
 {
 	AStarNode currentRecord;
 	std::vector<AStarNode> nodeRecords(map.getMapSize());
@@ -60,16 +68,16 @@ inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileinde
 		if (currentRecord.category == CLOSED) continue;
 
 		// Otherwise get its outgoing connections.
-		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex, canMoveOverCity)) {
+		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex, pathFlags & PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES)) {
 			// Get the cost estimate for the neighbor.
 			double tentativeG = currentRecord.g + 1 + (Tile::MAX_ROAD - map.tileAt(neighbourIndex).getRoadAmount());
 
 			// TODO: find a better score to check
-			if (tentativeG <= 25.0f && std::find_if(agentsPosition.begin(), agentsPosition.end(),
-				[neighbourIndex](tileindex_t agentIndex) { return neighbourIndex == agentIndex; }) != agentsPosition.end())
+			if (tentativeG <= 25.0f 
+			  && map.tileAt(neighbourIndex).getType() != TileType::ALLY_CITY 
+			  && std::ranges::find(agentsPosition, neighbourIndex) != agentsPosition.end())
 				continue;
 
-			double tentativeF;
 			AStarNode &neighbourRecord = nodeRecords[neighbourIndex];
 
 			// If the node is closed we may have to skip.
@@ -81,7 +89,7 @@ inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileinde
 				continue;
 			}
 
-			tentativeF = heuristic(map.getTilePosition(neighbourIndex), map.getTilePosition(goalIndex));
+			double tentativeF = heuristic(map.getTilePosition(neighbourIndex), map.getTilePosition(goalIndex));
 
 			// We're here if we need to update the node. Update the cost, estimate and parent
 			neighbourRecord.g = tentativeG;

@@ -19,25 +19,56 @@ struct BotObjective
   tileindex_t targetTile;
 };
 
+enum Archetype
+{
+	SETTLER, //constructs cityTiles outside main cities
+	CITIZEN, //constructs cityTiles inside main cities
+	FARMER, //collects resources to bring to cities
+	ROADMAKER, //creates roads
+	TROUBLEMAKER //destroys and/or blocks roads
+};
+
 class Squad
 {
 public:
-  std::vector<Bot*> &getAgents() { return m_agents; }
+	std::vector<Bot *> &getAgents() { return m_agents; }
+	Archetype getArchetype() { return type; }
 
 private:
-  std::vector<Bot*> m_agents;
+	std::vector<Bot *> m_agents;
+	Archetype type;
+};
+
+class Strategy
+{
+public:
+	Strategy() {};
+
+	std::map<Archetype, size_t> getEnemyStance();
+	std::vector<Squad> adaptToEnemy(std::map<Archetype, size_t> enemyStance) {};
 };
 
 class Commander
 {
+private:
+	std::vector<Squad> m_squads;
+	std::shared_ptr<Blackboard> m_globalBlackboard;
+
+	Strategy currentStrategy;
+
 public:
   Commander();
   void updateHighLevelObjectives(GameState &state, const GameStateDiff &diff);
   std::vector<TurnOrder> getTurnOrders(GameState &gameState);
 
-private:
-  std::vector<Squad> m_squads;
-  std::shared_ptr<Blackboard> m_globalBlackboard;
+  void rearrangeSquads() 
+  {
+	  m_squads = currentStrategy.adaptToEnemy(currentStrategy.getEnemyStance());
+  }
+
+  std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
+
+  void commandSquads(bool interrupt) {};
 };
 
 #endif
