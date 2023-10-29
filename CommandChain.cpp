@@ -5,6 +5,8 @@
 #include "GameRules.h"
 #include "Log.h"
 #include "Pathing.h"
+#include <memory>
+
 
 Commander::Commander()
   : m_globalBlackboard(std::make_shared<Blackboard>())
@@ -18,13 +20,6 @@ void Commander::updateHighLevelObjectives(GameState *state, const GameStateDiff 
 {
     m_gameState = state;
     rearrangeSquads();
-    if (m_squads.size() == 0) return;
-    Squad &firstSquad = m_squads[0];
-    firstSquad.getAgents().clear();
-    for (Bot &bot : state->bots) {
-      if (bot.getTeam() == Player::ALLY)
-        firstSquad.getAgents().push_back(&bot);
-    }
 }
 
 
@@ -54,9 +49,10 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPosition);
 
     // collect agents that can act right now
-    std::vector<std::pair<Bot*,Archetype>> availableAgents;
+    std::vector<std::pair<Bot *, Archetype>> availableAgents{};
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
+            if (agent == nullptr) continue;
             if (agent->getType() == UNIT_TYPE::WORKER) {
                 nbAgents += 1;
                 nbWorkers += 1;
@@ -68,7 +64,22 @@ std::vector<TurnOrder> Commander::getTurnOrders()
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.push_back(std::pair<Bot*, Archetype>(agent, squad.getArchetype()));
         }
+    };
+
+    int cityNb = 0;
+
+    for (Bot city : gameState->bots)
+    {
+        std::pair<Bot *, Archetype> c = std::pair<Bot *, Archetype>(&city, CITIZEN);
+        if (city.getType() == UNIT_TYPE::CITY)//&& std::find(availableAgents.begin(), availableAgents.end(), c) == availableAgents.end())
+        {
+            cityNb++;
+            if (city.getCooldown() < game_rules::MAX_ACT_COOLDOWN)
+                availableAgents.push_back(c);
+        }
     }
+
+    LOG("CityNb : " << cityNb);
 
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
     m_globalBlackboard->insertData(bbn::GLOBAL_WORKERS, nbWorkers);
@@ -77,7 +88,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
 
     // fill in the orders list through agents behavior trees
     std::for_each(availableAgents.begin(), availableAgents.end(), [&,this](std::pair<Bot *, Archetype> agent) {
-        tileindex_t targetTile = 0;
+        tileindex_t targetTile = 1;
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
         switch (agent.second) {
             case Archetype::CITIZEN:    //TODO implement CITIZEN/SETTLER difference in pathing::getBestCityBuildingLocation algorithm
@@ -103,7 +114,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
 void Commander::rearrangeSquads()
 {
     auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
-    auto stanceToTake = currentStrategy.adaptToEnemy(std::move(enemyStance));
+    auto stanceToTake = currentStrategy.adaptToEnemy(std::move(enemyStance), *m_gameState);
     m_squads = currentStrategy.createSquads(std::move(stanceToTake), m_gameState);
 }
 
@@ -194,44 +205,124 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
     return enemySquads;
 }
 
-std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance)
+//TODO : set and use positions in SquadRequirement
+std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState)
 {
-    //sorted by priority in the end
-    return std::vector<SquadRequirement>{SquadRequirement{ 1,0,1,5,5, Archetype::CITIZEN }};
+    std::vector<SquadRequirement> squadRequirements{};
+
+    std::vector<EnemySquadInfo> info{ enemyStance };
+
+    int availableBots = 0;
+    int availableCarts = 0;
+    for_each(gameState.bots.begin(), gameState.bots.end(), [&availableBots, &availableCarts](const Bot bot)
+    {
+        if (bot.getTeam() == Player::ALLY) {
+            if (bot.getType() == UNIT_TYPE::CART) availableCarts++;
+            else if (bot.getType() == UNIT_TYPE::WORKER) availableBots++;
+        }
+    });
+
+    //TODO replace with gameState->cities ??
+    auto clusters = getCityClusters(gameState);
+    std::vector<CityCluster> allyCities = clusters[0];
+    std::vector<CityCluster> enemyCities = clusters[1];
+
+    //First citizen
+    squadRequirements.push_back(SquadRequirement{ 1,0,0,10,10,Archetype::CITIZEN });
+    availableBots--;
+
+    //Sustain
+    for_each(allyCities.begin(), allyCities.end(), [&squadRequirements, &availableBots](CityCluster cc) {
+        if (availableBots > 0)
+        {
+            squadRequirements.push_back(SquadRequirement{ 1,0,1,(int)cc.center_x, (int)cc.center_y, Archetype::FARMER });
+            availableBots--;
+        }
+    });
+
+    std::map<Archetype, size_t> priorities{};
+    priorities.emplace(std::pair<Archetype, size_t>(Archetype::CITIZEN, 2));
+    priorities.emplace(std::pair<Archetype, size_t>(Archetype::FARMER, 2));
+    priorities.emplace(std::pair<Archetype, size_t>(Archetype::KILLER, 2));
+    priorities.emplace(std::pair<Archetype, size_t>(Archetype::ROADMAKER, 2));
+    priorities.emplace(std::pair<Archetype, size_t>(Archetype::SETTLER, 2));
+    priorities.emplace(std::pair<Archetype, size_t>(Archetype::TROUBLEMAKER, 2));
+
+
+    //Retaliation
+    while ((availableBots > 0 || availableCarts > 0) && !info.empty())
+    {
+        EnemySquadInfo enemySquad = info[0];
+        switch (enemySquad.mission) {
+        case ROADMAKER:
+            squadRequirements.push_back(SquadRequirement{ 1,0,priorities[ROADMAKER],enemySquad.pos_x,enemySquad.pos_y,TROUBLEMAKER });
+            priorities.emplace(ROADMAKER, priorities[ROADMAKER]+1);
+            availableBots--;
+            break; //ROADMAKER blocked by TROUBLEMAKER
+        case SETTLER:
+            squadRequirements.push_back(SquadRequirement{ 1,0,priorities[SETTLER],enemySquad.pos_x,enemySquad.pos_y,SETTLER });
+            priorities.emplace(SETTLER, priorities[SETTLER]+1);
+            availableBots--;
+            break; //SETTLER blocked by SETTLER : don't go in their direction
+        case KILLER:
+            squadRequirements.push_back(SquadRequirement{ 1,0,priorities[SETTLER],enemySquad.pos_x,enemySquad.pos_y,SETTLER });
+            priorities.emplace(SETTLER, priorities[SETTLER]+1);
+            availableBots--;
+            break; //KILLER blocked by SETTLER : get out of the city !
+        default: break;
+        }
+        info.pop_back();
+    }
+
+    size_t selfPriority = 10;
+
+    //Self-organization
+    while ((availableBots > 0 || availableCarts > 0))
+    {
+        squadRequirements.push_back(SquadRequirement{ static_cast<size_t>(std::min(availableBots, 3)),static_cast<size_t>(std::min(availableCarts, 1)),selfPriority,0,0,FARMER });
+        availableBots -= std::min(availableBots, 3);
+        availableCarts--;
+        selfPriority++;
+        squadRequirements.push_back(SquadRequirement{ static_cast<size_t>(std::min(availableBots, 1)),0,selfPriority,0,0,CITIZEN });
+        availableBots -= std::min(availableBots, 3);
+        availableCarts--;
+    }
+
+    std::sort(squadRequirements.begin(), squadRequirements.end(), [](SquadRequirement sr1, SquadRequirement sr2)->bool { return sr1.priority < sr2.priority; });
+    return squadRequirements;
 }
+
 
 std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &squadRequirements, GameState* gameState) //not optimal, could do clustering to be more efficient
 {
     std::vector<Squad> newSquads{};
-    std::vector<Bot *> botsUnassigned{};
-    LOG("Squad : ");
-    std::ranges::transform(gameState->bots, std::back_inserter(botsUnassigned), [](Bot &bot) { return &bot; });
+    std::vector<Bot *> botsAssigned{};
+    std::vector<std::pair<Bot *, size_t>> bestBots{};
 
-    for_each(squadRequirements.begin(), squadRequirements.end(), [&botsUnassigned, &newSquads](const SquadRequirement &sr) 
+    for_each(squadRequirements.begin(), squadRequirements.end(), [&gameState, &bestBots, &botsAssigned, &newSquads](const SquadRequirement &sr) 
     {
-        std::vector<std::pair<Bot*, size_t>> bestBots{sr.botNb};
-
         //Get the sr.botNb closest bots for this SquadRequirement
-        for_each(botsUnassigned.begin(), botsUnassigned.end(), [&bestBots, &sr](Bot* bot)
+        bestBots.clear();
+        for_each(gameState->bots.begin(), gameState->bots.end(), [&botsAssigned, &bestBots, &sr](Bot &bot)
         {
-            if (bestBots.size() < sr.botNb) bestBots.emplace_back(bot, (size_t)(std::abs(sr.dest_x - bot->getX()) + std::abs(sr.dest_y - bot->getY())));
-            else 
-            {
-                size_t dist = std::abs(sr.dest_x - bot->getX()) + std::abs(sr.dest_y - bot->getY());
-                size_t scoreDist = bestBots[0].second;
-                size_t index = 0;
-                for (size_t i = 1; i < sr.botNb; i++) 
-                {
-                    if (bestBots[i].second < scoreDist) 
-                    {
-                        index = i;
-                        scoreDist = bestBots[i].second;
+            if (bot.getTeam() == Player::ALLY && (bot.getType() != UNIT_TYPE::CITY) && (std::find(botsAssigned.begin(), botsAssigned.end(), &bot) == botsAssigned.end())) {
+                if (bestBots.size() < sr.botNb) bestBots.emplace_back(&bot, (size_t)(std::abs(sr.dest_x - bot.getX()) + std::abs(sr.dest_y - bot.getY())));
+                else {
+                    size_t dist = std::abs(sr.dest_x - bot.getX()) + std::abs(sr.dest_y - bot.getY());
+                    size_t scoreDist = bestBots[0].second;
+                    size_t index = 0;
+                    for (size_t i = 1; i < sr.botNb; i++) {
+                        if (bestBots[i].second < scoreDist) {
+                            index = i;
+                            scoreDist = bestBots[i].second;
+                        }
                     }
+                    if (dist < scoreDist) bestBots[index] = std::pair<Bot *, size_t>(&bot, dist);
                 }
-                if (dist < scoreDist) bestBots[index] = std::pair<Bot*, size_t>(bot, dist);
             }
         });
         std::vector<Bot *> nSquad{};
+        std::ranges::transform(bestBots, std::back_inserter(botsAssigned), [](auto &v) { return v.first; });
         std::ranges::transform(bestBots, std::back_inserter(nSquad), [](auto &v) { return v.first; });
         newSquads.emplace_back(std::move(nSquad), sr.mission);
     });

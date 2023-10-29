@@ -27,7 +27,8 @@ enum Archetype
 	CITIZEN, //constructs cityTiles inside main cities
 	FARMER, //collects resources to bring to cities
 	ROADMAKER, //creates roads
-	TROUBLEMAKER //destroys and/or blocks roads
+	TROUBLEMAKER, //destroys and/or blocks roads
+	KILLER //besieges units and/or cities
 };
 
 class Squad
@@ -75,7 +76,7 @@ public:
 	Strategy() = default;
 
 	std::vector<EnemySquadInfo> getEnemyStance(const GameState &gameState);
-	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance);
+	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState);
 	std::vector<Squad> createSquads(const std::vector<SquadRequirement> &agentRepartition, GameState* gameState);
 
 private:

@@ -22,7 +22,8 @@ struct GameStateDiff
 {
   std::vector<Bot> deadBots;
   //std::vector<tileindex_t> exhaustedResourceTiles; // to be implemented (when needed)
-  //std::vector<tileindex_t> deadCityTiles;
+  //std::vector<tileindex_t> dead
+  // Tiles;
 
   std::vector<Bot*> newBots;
   //std::vector<tileindex_t> newCityTiles;
