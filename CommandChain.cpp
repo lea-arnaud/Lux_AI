@@ -34,25 +34,22 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     int nbAgents = 0;
     int nbWorkers = 0;
     int nbCarts = 0;
-    GameState *gameState{ m_gameState };
+    int nbCities = 0;
 
-    size_t friendlyCityCount = std::count_if(gameState->bots.begin(), gameState->bots.end(), [](Bot &bot) { return bot.getTeam() == Player::ALLY && bot.getType() == UNIT_TYPE::CITY; });
     std::vector<tileindex_t> agentsPosition;
-    std::ranges::transform(gameState->bots, std::back_inserter(agentsPosition), [&gameState](Bot &bot) { return gameState->map.getTileIndex(bot); });
+    std::ranges::transform(m_gameState->bots, std::back_inserter(agentsPosition), [this](const Bot &bot) { return m_gameState->map.getTileIndex(bot); });
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, m_gameState);
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &m_gameState->map);
     m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
     m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, m_gameState->playerResearchPoints[Player::ALLY]);
-    m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, friendlyCityCount);
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPosition);
 
     // collect agents that can act right now
     std::vector<std::pair<Bot *, Archetype>> availableAgents{};
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
-            if (agent == nullptr) continue;
             if (agent->getType() == UNIT_TYPE::WORKER) {
                 nbAgents += 1;
                 nbWorkers += 1;
@@ -62,28 +59,23 @@ std::vector<TurnOrder> Commander::getTurnOrders()
                 nbCarts += 1;
             }
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                availableAgents.push_back(std::pair<Bot*, Archetype>(agent, squad.getArchetype()));
+                availableAgents.emplace_back(agent, squad.getArchetype());
         }
-    };
+    }
 
-    int cityNb = 0;
-
-    for (Bot city : gameState->bots)
-    {
-        std::pair<Bot *, Archetype> c = std::pair<Bot *, Archetype>(&city, CITIZEN);
-        if (city.getType() == UNIT_TYPE::CITY)//&& std::find(availableAgents.begin(), availableAgents.end(), c) == availableAgents.end())
-        {
-            cityNb++;
+    for (Bot &city : m_gameState->bots) {
+        if (city.getType() == UNIT_TYPE::CITY) {
+            nbCities++;
+            std::pair c{ &city, CITIZEN };
             if (city.getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.push_back(c);
         }
     }
 
-    LOG("CityNb : " << cityNb);
-
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
     m_globalBlackboard->insertData(bbn::GLOBAL_WORKERS, nbWorkers);
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
+    m_globalBlackboard->insertData(bbn::GLOBAL_CITY_COUNT, nbCities);
 
 
     // fill in the orders list through agents behavior trees
@@ -114,8 +106,8 @@ std::vector<TurnOrder> Commander::getTurnOrders()
 void Commander::rearrangeSquads()
 {
     auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
-    auto stanceToTake = currentStrategy.adaptToEnemy(std::move(enemyStance), *m_gameState);
-    m_squads = currentStrategy.createSquads(std::move(stanceToTake), m_gameState);
+    auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState);
+    m_squads = currentStrategy.createSquads(stanceToTake, m_gameState);
 }
 
 std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(const GameState &gameState)

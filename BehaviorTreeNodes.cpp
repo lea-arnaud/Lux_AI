@@ -53,7 +53,7 @@ std::shared_ptr<Task> testHasTeamEnoughCarts()
 std::shared_ptr<Task> testHasTeamReachedAgentCapacity()
 {
   return std::make_shared<Test>([](Blackboard& bb) {
-    return bb.getData<int>(bbn::GLOBAL_AGENTS) >= bb.getData<size_t>(bbn::GLOBAL_FRIENDLY_CITY_COUNT);
+    return bb.getData<int>(bbn::GLOBAL_AGENTS) >= bb.getData<int>(bbn::GLOBAL_CITY_COUNT);
   });
 }
 
