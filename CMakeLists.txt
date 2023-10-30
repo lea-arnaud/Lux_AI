@@ -50,6 +50,7 @@ SET( AIBOT_HEADERS
 	Pathing.h
 	GameRules.h
 	AStar.h
+	InfluenceMap.h
 )
 
 SET( AIBOT_SRC 
@@ -66,6 +67,7 @@ SET( AIBOT_SRC
 	Pathing.cpp
 	GameState.cpp
 	TurnOrder.cpp
+	InfluenceMap.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")
