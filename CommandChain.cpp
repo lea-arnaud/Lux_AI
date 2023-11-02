@@ -5,6 +5,7 @@
 #include "GameRules.h"
 #include "Log.h"
 #include "Pathing.h"
+#include "InfluenceMap.h"
 
 Commander::Commander()
   : m_globalBlackboard(std::make_shared<Blackboard>())
@@ -69,6 +70,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, nbCities);
 
+    gameState.map.computeInfluence();
 
     // fill in the orders list through agents behavior trees
     std::for_each(availableAgents.begin(), availableAgents.end(), [&,this](std::pair<Bot *, Archetype> agent) {

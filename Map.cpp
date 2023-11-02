@@ -68,3 +68,22 @@ std::pair<int, int> Map::getTilePosition(tileindex_t tile) const
 {
     return std::make_pair(tile % m_width, tile / m_width);
 }
+
+void Map::computeInfluence()
+{
+  m_cities.clear();
+  m_ressources.clear();
+
+  for (tileindex_t i = 0; i < m_tiles.size(); ++i) {
+    switch (m_tiles[i].getType()) {
+    case TileType::ALLY_CITY:
+      m_cities.addTemplateAtIndex(static_cast<int>(i), cityTemplate);
+      break;
+    case TileType::RESOURCE:
+      m_cities.addTemplateAtIndex(static_cast<int>(i), ressourceTemplate);
+      break;
+    default:
+      break;
+    }
+  }
+}

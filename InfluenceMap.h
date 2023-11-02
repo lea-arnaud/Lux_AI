@@ -53,21 +53,34 @@ class InfluenceMap
   std::vector<float> m_map;
 
 public:
+  InfluenceMap() = default;
   InfluenceMap(int width, int height) : m_width{ width }, m_height{ height }
   {
     m_map = std::vector<float>(width * height, 0.0f);
   }
 
+  void setSize(int width, int height)
+  {
+    m_width = width;
+    m_height = height;
+
+    m_map.resize(width * height, 0.0f);
+  }
+
   int getIndex(int x, int y) const { return x + y * m_width; }
-  std::pair<int, int> getCoord(int index) const { return { index / m_width, index % m_width }; }
+  std::pair<int, int> getCoord(int index) const { return { index % m_width, index / m_width }; }
   std::pair<int, int> getCenter() const { return { m_width / 2, m_height / 2 }; }
   int getSize() const { return m_width * m_height; }
 
-  void propagate(int x1, int y1, float initialInfluence, float (*propagationFunction)(float, float))
+  void clear() { std::fill(m_map.begin(), m_map.end(), 0.0f); }
+
+  void propagate(int index, float initialInfluence, float (*propagationFunction)(float, float))
   {
+    auto [x1, y1] = getCoord(index);
+
     for (int y2 = 0; y2 < m_height; ++y2) {
       for (int x2 = 0; x2 < m_width; ++x2) {
-        m_map[getIndex(x2, y2)] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
+        m_map[index] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
       }
     }
   }
@@ -89,40 +102,34 @@ public:
   }
 
   template <unsigned int W, unsigned int H>
-  void addTemplateAtLocation(int x, int y, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  void addTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
-    int deltaX = x - W / 2;
-    int deltaY = y - H / 2;
+    int deltaX = index % W - W / 2;
+    int deltaY = index / W - H / 2;
 
     for (int i = 0; i < W * H; ++i) {
-      int x1 = i / W;
-      int y1 = i % W;
+      int x = i % W + deltaX;
+      int y = i / W + deltaY;
 
-      int x2 = x1 + deltaX;
-      int y2 = y1 + deltaY;
+      if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
 
-      if (x2 < 0 || x2 >= m_width || y2 < 0 || y2 >= m_height) continue;
-
-      m_map[getIndex(x2, y2)] += influenceTemplate.m_map[i] * weight;
+      m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
     }
   }
 
   template <unsigned int W, unsigned int H>
-  void multiplyTemplateAtLocation(int x, int y, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  void multiplyTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
-    int deltaX = x - W / 2;
-    int deltaY = y - H / 2;
+    int deltaX = index % W - W / 2;
+    int deltaY = index / W - H / 2;
 
     for (int i = 0; i < W * H; ++i) {
-      int x1 = i / W;
-      int y1 = i % W;
+      int x = i % W + deltaX;
+      int y = i / W + deltaY;
 
-      int x2 = x1 + deltaX;
-      int y2 = y1 + deltaY;
+      if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
 
-      if (x2 < 0 || x2 >= m_width || y2 < 0 || y2 >= m_height) continue;
-
-      m_map[getIndex(x2, y2)] *= influenceTemplate.m_map[i] * weight;
+      m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
     }
   }
 
@@ -166,19 +173,19 @@ public:
   }
 };
 
-constexpr InfluenceTemplate<9, 9> agent{ 4, 4, 1.0f,
+constexpr InfluenceTemplate<9, 9> agentTemplate{ 4, 4, 1.0f,
                                        [](float influence, float distance)
                                        {
                                          return influence - (influence  * distance / 8.0f);
                                        } };
 
-constexpr InfluenceTemplate<9, 9> ressource{ 4, 4, 1.0f,
+constexpr InfluenceTemplate<9, 9> ressourceTemplate{ 4, 4, 1.0f,
                                        [](float influence, float distance)
                                        {
                                          return influence - (influence  * distance / 8.0f);
                                        } };
 
-constexpr InfluenceTemplate<3, 3> city{ 1, 1, 0.0f,
+constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
                                        [](float influence, float distance)
                                        {
                                          return distance == 1.0f ? 1.0f : distance == 0.0f ? -4.0f : 0.0f;
