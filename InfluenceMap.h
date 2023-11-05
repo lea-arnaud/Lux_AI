@@ -4,7 +4,6 @@
 #include <array>
 #include <type_traits>
 #include <vector>
-#include <algorithm>
 #include <string>
 
 template <class T>
@@ -74,32 +73,10 @@ public:
 
   void clear() { std::fill(m_map.begin(), m_map.end(), 0.0f); }
 
-  void propagate(int index, float initialInfluence, float (*propagationFunction)(float, float))
-  {
-    auto [x1, y1] = getCoord(index);
+  void propagate(int index, float initialInfluence, float (*propagationFunction)(float, float));
 
-    for (int y2 = 0; y2 < m_height; ++y2) {
-      for (int x2 = 0; x2 < m_width; ++x2) {
-        m_map[index] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
-      }
-    }
-  }
-
-  void addMap(const InfluenceMap &influenceMap, float weight = 1.0f)
-  {
-    std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
-      [weight](float currentScore, float otherScore) {
-        return currentScore + (otherScore * weight);
-      });
-  }
-
-  void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f)
-  {
-    std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
-      [weight](float currentScore, float otherScore) {
-        return currentScore * (otherScore * weight);
-      });
-  }
+  void addMap(const InfluenceMap &influenceMap, float weight = 1.0f);
+  void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);
 
   template <unsigned int W, unsigned int H>
   void addTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
@@ -133,30 +110,11 @@ public:
     }
   }
 
-  void normalize()
-  {
-    // TODO: get the min and max in one loop
-    float minVal = *std::min_element(m_map.begin(), m_map.end());
-    float maxVal = *std::max_element(m_map.begin(), m_map.end());
+  void normalize();
+  void flip();
 
-    if (minVal == maxVal)
-      return;
-
-    std::transform(m_map.begin(), m_map.end(), m_map.begin(),
-      [minVal, maxVal](float score) { return (score - minVal) / (maxVal - minVal); });
-  }
-
-  void flip()
-  {
-    std::transform(m_map.begin(), m_map.end(), m_map.begin(),
-      [](float score) { return 1.0f - score; });
-  }
-
-  int getHighestPoint()
-  {
-    auto maxIterator = std::max_element(m_map.begin(), m_map.end());
-    return static_cast<int>(std::distance(m_map.begin(), maxIterator));
-  }
+  int getHighestPoint() const;
+  std::vector<int> getNHighestPoints(int n) const;
 
   std::string toJson() const
   {

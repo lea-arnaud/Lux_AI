@@ -77,7 +77,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(GameState &gameState)
         tileindex_t targetTile = 0;
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
         switch (agent.second) {
-            case Archetype::CITIZEN:    //TODO implement CITIZEN/SETTLER difference in pathing::getBestCityBuildingLocation algorithm
+        case Archetype::CITIZEN: targetTile = pathing::getBestExpansionLocation(agent.first, &gameState.map); break;
             case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent.first, &gameState.map); break;
             case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getResourceFetchingLocation(agent.first, &gameState.map); break;
             case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block

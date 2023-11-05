@@ -4,6 +4,7 @@
 
 #include "GameRules.h"
 #include "Log.h"
+#include "InfluenceMap.h"
 
 namespace pathing
 {
@@ -93,6 +94,14 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
     }
   }
   return bestTile;
+}
+
+tileindex_t getBestExpansionLocation(const Bot* bot, const Map* map)
+{
+  InfluenceMap workingMap{ map->getCitiesMap() };
+  workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
+
+  return static_cast<tileindex_t>(workingMap.getHighestPoint());
 }
 
 tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::vector<tileindex_t> &occupiedTiles)

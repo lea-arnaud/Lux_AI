@@ -49,6 +49,9 @@ public:
 	bool isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const;
 	// TODO: add parameter to choose which map to compute
 	void computeInfluence();
+
+	InfluenceMap getCitiesMap() const { return m_cities; }
+	InfluenceMap getRessourcesMap() const { return m_ressources; }
 };
 
 #endif
