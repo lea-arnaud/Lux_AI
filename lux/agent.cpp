@@ -51,6 +51,7 @@ namespace kit
                 int amt = std::stoi(updates[4]);
                 newState.map.tileAt(x, y).setResourceAmount(amt);
                 newState.map.tileAt(x, y).setType(TileType::RESOURCE, resourceType);
+                newState.resourcesIndex.push_back(newState.map.getTileIndex(x, y));
             }
             else if (input_identifier == INPUT_CONSTANTS::UNITS)
             {
@@ -117,6 +118,7 @@ namespace kit
                 updatedAgent.setY(y);
                 updatedAgent.setCooldown(cooldown);
                 updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
+                newState.citiesBot.push_back(&updatedAgent);
                 newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);
             }
             else if (input_identifier == INPUT_CONSTANTS::ROADS)

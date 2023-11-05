@@ -16,7 +16,7 @@ private:
 	int m_width{}, m_height{};
 
 	InfluenceMap m_cities;
-	InfluenceMap m_ressources;
+	InfluenceMap m_resources;
 
 public:
 	Map() = default;
@@ -28,7 +28,7 @@ public:
 		m_tiles.resize(width * height);
 
 		m_cities.setSize(width, height);
-		m_ressources.setSize(width, height);
+		m_resources.setSize(width, height);
 	}
 
 	int getWidth() const { return m_width; }
@@ -51,7 +51,7 @@ public:
 	void computeInfluence();
 
 	InfluenceMap getCitiesMap() const { return m_cities; }
-	InfluenceMap getRessourcesMap() const { return m_ressources; }
+	InfluenceMap getRessourcesMap() const { return m_resources; }
 };
 
 #endif
