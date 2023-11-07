@@ -3,7 +3,6 @@
 
 #include <string>
 
-// TODO find a way to define names as std::string in a header file *without* using static
 #define DEF_BLACKBOARD_ENTRY(name) static const std::string name = #name
 
 namespace blackboard_names
@@ -13,12 +12,12 @@ namespace blackboard_names
 DEF_BLACKBOARD_ENTRY(GLOBAL_MAP); // Map*
 DEF_BLACKBOARD_ENTRY(GLOBAL_TURN); // size_t
 DEF_BLACKBOARD_ENTRY(GLOBAL_ORDERS_LIST); // std::vector<TurnOrder>*
-DEF_BLACKBOARD_ENTRY(GLOBAL_AGENTS); // int - verify if it's still usefull 
+DEF_BLACKBOARD_ENTRY(GLOBAL_AGENTS); // int
 DEF_BLACKBOARD_ENTRY(GLOBAL_WORKERS); // int
 DEF_BLACKBOARD_ENTRY(GLOBAL_CARTS); // int
+DEF_BLACKBOARD_ENTRY(GLOBAL_CITY_COUNT); // int
 DEF_BLACKBOARD_ENTRY(GLOBAL_TEAM_RESEARCH_POINT); // size_t
 DEF_BLACKBOARD_ENTRY(GLOBAL_GAME_STATE); // GameState*
-DEF_BLACKBOARD_ENTRY(GLOBAL_FRIENDLY_CITY_COUNT); // size_t
 DEF_BLACKBOARD_ENTRY(GLOBAL_AGENTS_POSITION); //std::vector<tileindex_t>*
 
 

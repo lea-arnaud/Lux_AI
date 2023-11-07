@@ -144,12 +144,10 @@ namespace kit
     {
         // sense
         // (already done by ExtractGameState)
-        
         // think
-        m_commander.updateHighLevelObjectives(m_gameState, m_gameStateDiff);
-
+        m_commander.updateHighLevelObjectives(&m_gameState, m_gameStateDiff);
         // act
-        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders(m_gameState);
+        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders();
         auto ordersEnd = std::remove_if(commanderOrders.begin(), commanderOrders.end(), [](TurnOrder &t) { return t.type == TurnOrder::DO_NOTHING; });
         orders.resize(std::distance(commanderOrders.begin(), ordersEnd));
         std::transform(commanderOrders.begin(), ordersEnd, orders.begin(), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });
