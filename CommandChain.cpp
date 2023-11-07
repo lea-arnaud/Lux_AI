@@ -5,6 +5,7 @@
 #include "GameRules.h"
 #include "Log.h"
 #include "Pathing.h"
+#include "Types.h"
 #include <memory>
 
 
