@@ -1,6 +1,7 @@
 #include "Pathing.h"
 
 #include <algorithm>
+#include <limits>
 
 #include "GameRules.h"
 #include "Log.h"
