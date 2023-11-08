@@ -64,6 +64,7 @@ std::shared_ptr<Task> testHasTeamEnoughResearchPoint()
   });
 }
 
+#ifdef _DEBUG
 std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result)
 {
   return std::make_shared<WithResult>(result, std::make_shared<SimpleAction>([text](Blackboard &bb) {
@@ -75,6 +76,19 @@ std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result)
 std::shared_ptr<Task> taskLog(const std::string &text, const std::shared_ptr<Task> &wrapped) {
   return std::make_shared<Sequence>(taskLog(text), wrapped);
 }
+#else
+std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result)
+{
+  // could be optimized further with macros, this node serves no purpose in release mode
+  // but still takes time to execute
+  return std::make_shared<WithResult>(result);
+}
+
+std::shared_ptr<Task> taskLog(const std::string &text, const std::shared_ptr<Task> &wrapped)
+{
+  return wrapped;
+}
+#endif
 
 std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Bot *bot)> &&orderSupplier)
 {

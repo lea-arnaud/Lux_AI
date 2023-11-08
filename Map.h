@@ -50,8 +50,8 @@ public:
 	// TODO: add parameter to choose which map to compute
 	void computeInfluence();
 
-	InfluenceMap getCitiesMap() const { return m_cities; }
-	InfluenceMap getRessourcesMap() const { return m_resources; }
+	const InfluenceMap &getCitiesMap() const { return m_cities; }
+	const InfluenceMap &getRessourcesMap() const { return m_resources; }
 };
 
 #endif

@@ -106,7 +106,7 @@ public:
 
       if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
 
-      m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
+      m_map[getIndex(x, y)] *= influenceTemplate.m_map[i] * weight;
     }
   }
 

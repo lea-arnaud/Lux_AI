@@ -64,9 +64,9 @@ std::vector<int> InfluenceMap::getNHighestPoints(int n) const
   }
 
   // Partially sort the indexed vector based on the values
-  std::partial_sort(indexedVec.begin(), indexedVec.begin() + n, indexedVec.end(), std::greater<std::pair<float, int>>());
+  std::partial_sort(indexedVec.begin(), indexedVec.begin() + n, indexedVec.end(), std::greater());
 
-  std::vector<int> resultIndices{ n };
+  std::vector<int> resultIndices(n);
   for (int i = 0; i < n; ++i) {
     resultIndices[i] = indexedVec[i].second;
   }
