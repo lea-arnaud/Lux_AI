@@ -70,7 +70,7 @@ tileindex_t getResourceFetchingLocation(const Bot *bot, const Map *map)
   return bestTile;
 }
 
-tileindex_t getBestCityBuildingLocation(const Bot *bot, Map *map)
+tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
 {
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();

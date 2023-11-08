@@ -1,13 +1,13 @@
 #include "CommandChain.h"
 
 #include <algorithm>
+#include <memory>
 
 #include "GameRules.h"
 #include "Log.h"
 #include "Pathing.h"
 #include "InfluenceMap.h"
 #include "Types.h"
-#include <memory>
 
 
 Commander::Commander()
@@ -89,11 +89,11 @@ std::vector<TurnOrder> Commander::getTurnOrders()
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
         switch (agent.second) {
         case Archetype::CITIZEN: targetTile = pathing::getBestExpansionLocation(agent.first, &m_gameState->map); break;
-            //TODO fix external symbol error : case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent.first, &m_gameState->map); break;
-            case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getResourceFetchingLocation(agent.first, &m_gameState->map); break;
-            case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
-                //case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::BUILD_CITY; break; //TODO implement ROADMAKER cart behaviour
-            default: break;
+        case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent.first, &m_gameState->map); break;
+        case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getResourceFetchingLocation(agent.first, &m_gameState->map); break;
+        case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
+            //case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::BUILD_CITY; break; //TODO implement ROADMAKER cart behaviour
+        default: break;
         }
         BotObjective objective{ mission, targetTile };
         (agent.first)->getBlackboard().insertData(bbn::AGENT_SELF, agent.first);
@@ -124,7 +124,7 @@ std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(co
       if (bot.getType() != UNIT_TYPE::CITY)
         continue;
       const Bot &cityTile = bot;
-      auto botFriendlyClusters = clusters[bot.getTeam()];
+      auto &botFriendlyClusters = clusters[bot.getTeam()];
 
       auto distanceToCluster = [&](CityCluster cluster) { return std::abs(cluster.center_x - (float)cityTile.getX()) + std::abs(cluster.center_y - (float)cityTile.getY()); };
       auto nearestCluster = std::ranges::min_element(botFriendlyClusters, std::less{}, distanceToCluster);

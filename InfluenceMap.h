@@ -53,10 +53,9 @@ class InfluenceMap
 
 public:
   InfluenceMap() = default;
-  InfluenceMap(int width, int height) : m_width{ width }, m_height{ height }
-  {
-    m_map = std::vector<float>(width * height, 0.0f);
-  }
+  InfluenceMap(int width, int height)
+    : m_width{ width }, m_height{ height }, m_map(static_cast<size_t>(width)*height, 0.f)
+  {}
 
   void setSize(int width, int height)
   {

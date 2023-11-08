@@ -27,7 +27,7 @@ public:
 	{
 	}
 
-	Blackboard &operator=(Blackboard &&moved)
+	Blackboard &operator=(Blackboard &&moved) noexcept
 	{
 	  parent = std::exchange(moved.parent, nullptr);
 	  data = std::exchange(moved.data, {});

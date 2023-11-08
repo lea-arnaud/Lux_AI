@@ -45,9 +45,9 @@ public:
 
 private:
   std::string m_id;
-  int         m_x, m_y;
-  float       m_cooldown;
-  int         m_wood, m_coal, m_uranium;
+  int         m_x{}, m_y{};
+  float       m_cooldown{};
+  int         m_wood{}, m_coal{}, m_uranium{};
   UNIT_TYPE   m_type;
   player_t    m_team;
   std::shared_ptr<Blackboard>    m_blackboard;

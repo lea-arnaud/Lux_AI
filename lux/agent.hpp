@@ -19,8 +19,8 @@ namespace kit
 
     private:
         int mID = 0;
-        int m_mapWidth, m_mapHeight;
-        GameState m_gameState; // current game state
+        int m_mapWidth{}, m_mapHeight{};
+        GameState m_gameState{}; // current game state
         GameStateDiff m_gameStateDiff; // game state changes since previous turn
         Commander m_commander;
     };
