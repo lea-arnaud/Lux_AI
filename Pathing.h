@@ -10,6 +10,7 @@ bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, con
 tileindex_t getResourceFetchingLocation(const Bot *bot, const Map *map);
 tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map);
 tileindex_t getBestExpansionLocation(const Bot *bot, const Map *map);
+tileindex_t getBestCityFeedingLocation(const Bot* bot, const Map* map);
 tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::vector<tileindex_t> &occupiedTiles);
 
 }

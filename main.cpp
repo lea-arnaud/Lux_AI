@@ -4,14 +4,15 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include <thread>
 
 #include "Log.h"
 
 int main()
 {
     //std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
-      
+    int playedTurns = 360; // set to only play to that turn
+    if (playedTurns != 360) std::cerr << "WITH MAX TURN PLAYED " << playedTurns << std::endl;
+
     std::cerr << "Hello game!" << std::endl; // mandatory log for lux-ai-2021 not to crash on log deletion
     kit::Agent agent = kit::Agent();
     agent.Initialize();
@@ -22,7 +23,7 @@ int main()
             agent.ExtractGameState();
 
             std::vector<std::string> orders = std::vector<std::string>();
-            agent.GetTurnOrders(orders);
+            if(--playedTurns > 0) agent.GetTurnOrders(orders);
 
             //Send orders to game engine
             for (int i = 0; i < orders.size(); i++)

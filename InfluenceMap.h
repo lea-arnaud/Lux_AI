@@ -69,6 +69,8 @@ public:
   std::pair<int, int> getCoord(int index) const { return { index % m_width, index / m_width }; }
   std::pair<int, int> getCenter() const { return { m_width / 2, m_height / 2 }; }
   int getSize() const { return m_width * m_height; }
+  int getWidth() const { return m_width; }
+  int getHeight() const { return m_height; }
 
   void clear() { std::fill(m_map.begin(), m_map.end(), 0.0f); }
 
@@ -145,7 +147,7 @@ constexpr InfluenceTemplate<9, 9> ressourceTemplate{ 4, 4, 1.0f,
 constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
                                        [](float influence, float distance)
                                        {
-                                         return distance == 1.0f ? 1.0f : distance == 0.0f ? -4.0f : 0.0f;
+                                         return distance == 1.0f ? 1.0f : distance == 0.0f ? -1000.0f : 0.0f;
                                        } };
 
 #endif

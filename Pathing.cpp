@@ -99,10 +99,33 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
 
 tileindex_t getBestExpansionLocation(const Bot* bot, const Map* map)
 {
+#if 0
   InfluenceMap workingMap{ map->getCitiesMap() };
-  workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
+  workingMap.addMap(map->getRessourcesMap(), -1000.f);
+  //workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
+  InfluenceMap botMap{ workingMap.getWidth(), workingMap.getHeight() };
+  botMap.propagate(map->getTileIndex(*bot), 10, [](float inf, float dist) { return inf / dist; });
+  workingMap.addMap(botMap);
 
   return static_cast<tileindex_t>(workingMap.getHighestPoint());
+#else
+  return getBestCityBuildingLocation(bot, map);
+#endif
+}
+
+tileindex_t getBestCityFeedingLocation(const Bot* bot, const Map* map)
+{
+  tileindex_t bestTile = -1;
+  float bestTileScore = std::numeric_limits<float>::lowest();
+  for (tileindex_t i = 0; i < map->getMapSize(); i++) {
+    if(map->tileAt(i).getType() != TileType::ALLY_CITY) continue;
+    float tileScore = DISTANCE_WEIGHT * map->distanceBetween(i, map->getTileIndex(*bot));
+    if (bestTileScore < tileScore) {
+      bestTile = i;
+      bestTileScore = tileScore;
+    }
+  }
+  return bestTile;
 }
 
 tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::vector<tileindex_t> &occupiedTiles)

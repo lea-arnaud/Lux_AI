@@ -123,10 +123,12 @@ std::shared_ptr<Task> taskMoveTo(
       }),
       taskPlayAgentTurn([](Blackboard &bb) {
         auto &path = bb.getData<std::vector<tileindex_t>>(bbn::AGENT_PATHFINDING_PATH);
-        auto occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
+        auto &occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
+        auto &map = bb.getData<Map*>(bbn::GLOBAL_MAP);
         const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
         tileindex_t nextTile = path.back();
         occupiedTiles->push_back(nextTile);
+        occupiedTiles->erase(std::ranges::find(*occupiedTiles, map->getTileIndex(*bot)));
         return TurnOrder{ TurnOrder::MOVE, bot, nextTile };
       })
     );
@@ -301,8 +303,11 @@ std::shared_ptr<Task> taskBuildCity()
 
   return std::make_shared<Sequence>(
     taskFetchResources(),
-    //taskLog("Enough resources, moving to city construction tile"),
-    taskMoveTo(goalSupplierFromAgentObjective(), testIsPathGoalValidConstructionTile, PathFlags::NONE, "city-construction-site"),
+    taskMoveTo(
+      goalSupplierFromAgentObjective(),
+      testIsPathGoalValidConstructionTile,
+      PathFlags::NONE,
+      "city-construction-site"),
     taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
   );
 }
@@ -317,7 +322,6 @@ std::shared_ptr<Task> taskFeedCity()
 
   return std::make_shared<Sequence>(
     taskFetchResources(),
-    //taskLog("Enough resources, moving to supplying city tile"),
     taskMoveTo(
       goalSupplierFromAgentObjective(),
       testIsGoalValidFriendlyCityTile,
@@ -436,9 +440,9 @@ public:
 std::shared_ptr<Task> behaviorWorker()
 {
   auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY, taskBuildCity());
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY, taskFeedCity());
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskMoveToBlockTile());
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    /*taskLog("build city", */ taskBuildCity()       /*)*/);
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY,     /*taskLog("feed city",  */ taskFeedCity()        /*)*/);
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
 
   return
     std::make_shared<Alternative>(
