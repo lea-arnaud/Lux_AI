@@ -54,7 +54,7 @@ class InfluenceMap
 public:
   InfluenceMap() = default;
   InfluenceMap(int width, int height)
-    : m_width{ width }, m_height{ height }, m_map(static_cast<size_t>(width)*height, 0.f)
+    : m_width{ width }, m_height{ height }, m_map(static_cast<size_t>(width) *height, 0.f)
   {}
 
   void setSize(int width, int height)
@@ -75,6 +75,7 @@ public:
   void clear() { std::fill(m_map.begin(), m_map.end(), 0.0f); }
 
   void propagate(int index, float initialInfluence, float (*propagationFunction)(float, float));
+  void setValueAtIndex(int index, float value);
 
   void addMap(const InfluenceMap &influenceMap, float weight = 1.0f);
   void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);
@@ -82,8 +83,8 @@ public:
   template <unsigned int W, unsigned int H>
   void addTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
-    int deltaX = index % W - W / 2;
-    int deltaY = index / W - H / 2;
+    int deltaX = index % m_width - W / 2;
+    int deltaY = index / m_width - H / 2;
 
     for (int i = 0; i < W * H; ++i) {
       int x = i % W + deltaX;
@@ -98,8 +99,8 @@ public:
   template <unsigned int W, unsigned int H>
   void multiplyTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
-    int deltaX = index % W - W / 2;
-    int deltaY = index / W - H / 2;
+    int deltaX = index % m_width - W / 2;
+    int deltaY = index / m_width - H / 2;
 
     for (int i = 0; i < W * H; ++i) {
       int x = i % W + deltaX;
@@ -147,7 +148,7 @@ constexpr InfluenceTemplate<9, 9> ressourceTemplate{ 4, 4, 1.0f,
 constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
                                        [](float influence, float distance)
                                        {
-                                         return distance == 1.0f ? 1.0f : distance == 0.0f ? -1000.0f : 0.0f;
+                                         return distance == 1.0f ? 1.0f : 0.5f;
                                        } };
 
 #endif

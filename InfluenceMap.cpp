@@ -13,6 +13,11 @@ void InfluenceMap::propagate(int index, float initialInfluence, float(*propagati
   }
 }
 
+void InfluenceMap::setValueAtIndex(int index, float value)
+{
+  m_map[index] = value;
+}
+
 void InfluenceMap::addMap(const InfluenceMap &influenceMap, float weight)
 {
   std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),

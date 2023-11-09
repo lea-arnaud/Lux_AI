@@ -99,14 +99,9 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
 
 tileindex_t getBestExpansionLocation(const Bot* bot, const Map* map)
 {
-#if 0
+#if 1
   InfluenceMap workingMap{ map->getCitiesMap() };
-  workingMap.addMap(map->getRessourcesMap(), -1000.f);
   //workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
-  InfluenceMap botMap{ workingMap.getWidth(), workingMap.getHeight() };
-  botMap.propagate(map->getTileIndex(*bot), 10, [](float inf, float dist) { return inf / dist; });
-  workingMap.addMap(botMap);
-
   return static_cast<tileindex_t>(workingMap.getHighestPoint());
 #else
   return getBestCityBuildingLocation(bot, map);

@@ -78,9 +78,14 @@ void Map::computeInfluence()
     switch (m_tiles[i].getType()) {
     case TileType::ALLY_CITY:
       m_cities.addTemplateAtIndex(static_cast<int>(i), cityTemplate);
+      m_cities.setValueAtIndex(static_cast<int>(i), -100.0f);
       break;
     case TileType::RESOURCE:
       m_resources.addTemplateAtIndex(static_cast<int>(i), ressourceTemplate);
+      m_cities.setValueAtIndex(static_cast<int>(i), -100.0f);
+      break;
+    case TileType::ENEMY_CITY:
+      m_cities.setValueAtIndex(static_cast<int>(i), -100.0f);
       break;
     default:
       break;
