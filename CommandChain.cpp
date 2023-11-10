@@ -28,7 +28,6 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     static size_t turnNumber = 0;
     std::vector<TurnOrder> orders;
 
-    LOG("Turn " << turnNumber);
     turnNumber++;
 
     int nbAgents = 0;

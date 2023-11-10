@@ -2,6 +2,7 @@
 
 #include "Pathing.h"
 #include "CommandChain.h"
+#include "lux/annotate.hpp"
 
 namespace nodes
 {
@@ -64,12 +65,18 @@ std::shared_ptr<Task> testHasTeamEnoughResearchPoint()
   });
 }
 
+static void botLog(const Bot *bot, auto &&...args) {
+  std::stringstream ss;
+  ss << bot->getId() << "[" << bot->getX() << " " << bot->getY() << "] ";
+  (ss << ... << args);
+  lux::Annotate::sidetext(ss.str());
+}
+
 #ifdef _DEBUG
 std::shared_ptr<Task> taskLog(const std::string &text, TaskResult result)
 {
   return std::make_shared<WithResult>(result, std::make_shared<SimpleAction>([text](Blackboard &bb) {
-    Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    LOG(bot->getId() << ": " << text);
+    botLog(bb.getData<Bot *>(bbn::AGENT_SELF), text);
   }));
 }
 
@@ -190,7 +197,7 @@ std::shared_ptr<Task> taskMoveTo(
     std::make_shared<Test>([=](Blackboard &bb) {
       const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
       bool changed = !bb.hasData(bbn::AGENT_PATHFINDING_TYPE) || pathtype != bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE);
-      if(changed) LOG(bot->getId() << ": action interupted from " << (bb.hasData(bbn::AGENT_PATHFINDING_TYPE) ? bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE) : "none") << " to " << pathtype);
+      if (changed) botLog(bot, "action interupted from ", (bb.hasData(bbn::AGENT_PATHFINDING_TYPE) ? bb.getData<std::string>(bbn::AGENT_PATHFINDING_TYPE) : "none"), " to ", pathtype);
       return !changed;
     });
 
@@ -204,8 +211,8 @@ std::shared_ptr<Task> taskMoveTo(
       tileindex_t nextTile = path.back();
       if (map->getTileIndex(*bot) == nextTile)
         path.pop_back();
-      //else
-      //  LOG(bot->getId() << ": did not move on the previous turn, probably due to a collision");
+      else
+        botLog(bot, "did not move on the previous turn, probably due to a collision");
     });
 
   return
@@ -281,7 +288,7 @@ std::shared_ptr<Task> taskFetchResources()
     std::make_shared<Sequence>(
       taskMoveTo(pathing::getResourceFetchingLocation, testIsValidResourceFetchingLocation, PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES, "resource-fetching-site"),
       taskLog("Collecting resources"),
-      taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
+      taskPlayAgentTurn([](const Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
     )
   );
 }
@@ -308,7 +315,7 @@ std::shared_ptr<Task> taskBuildCity()
       testIsPathGoalValidConstructionTile,
       PathFlags::NONE,
       "city-construction-site"),
-    taskPlayAgentTurn([](Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
+    taskPlayAgentTurn([](const Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
   );
 }
 
@@ -370,7 +377,6 @@ std::shared_ptr<Task> taskCityCreateWorker()
   return std::make_shared<Selector>(
     testHasTeamEnoughWorkers(),
     testHasTeamReachedAgentCapacity(),
-    taskLog("There are not enough bot, creating worker", TaskResult::FAILURE),
     taskPlayAgentTurn([](Blackboard &bb) {
       const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
       bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
@@ -402,7 +408,6 @@ std::shared_ptr<Task> taskCityResearch()
 {
   return std::make_shared<Selector>(
     testHasTeamEnoughResearchPoint(),
-    taskLog("There are not enough research point, starting research", TaskResult::FAILURE),
     taskPlayAgentTurn([](Blackboard &bb) {
       bb.updateData(bbn::GLOBAL_TEAM_RESEARCH_POINT, bb.getData<size_t>(bbn::GLOBAL_TEAM_RESEARCH_POINT) + 1);
       return TurnOrder{ TurnOrder::RESEARCH, bb.getData<Bot*>(bbn::AGENT_SELF) };
@@ -440,9 +445,9 @@ public:
 std::shared_ptr<Task> behaviorWorker()
 {
   auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    /*taskLog("build city", */ taskBuildCity()       /*)*/);
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY,     /*taskLog("feed city",  */ taskFeedCity()        /*)*/);
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    taskLog("build city", taskBuildCity()      ));
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY,     taskLog("feed city",  taskFeedCity()       ));
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskLog("block tile", taskMoveToBlockTile()));
 
   return
     std::make_shared<Alternative>(
@@ -471,4 +476,6 @@ std::shared_ptr<Task> behaviorCart()
           )
         );
 }
+  
 }
+

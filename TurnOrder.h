@@ -34,7 +34,7 @@ struct TurnOrder
       };
   };
 
-  std::string getAsString(const Map &map);
+  std::string getAsString(const Map &map) const;
 };
 
 #endif
