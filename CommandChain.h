@@ -89,6 +89,7 @@ class Commander
 private:
 	std::vector<Squad> m_squads;
 	std::shared_ptr<Blackboard> m_globalBlackboard;
+	std::vector<EnemySquadInfo> m_previousEnemyStance;
 
 	GameState *m_gameState;
 
@@ -99,7 +100,8 @@ public:
   void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);
   std::vector<TurnOrder> getTurnOrders();
 
-  void rearrangeSquads();
+  bool shouldUpdateSquads(const GameStateDiff &diff, const std::vector<EnemySquadInfo> &newEnemyStance);
+  void rearrangeSquads(const GameStateDiff &diff);
 
 	std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
 

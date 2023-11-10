@@ -50,7 +50,6 @@ std::shared_ptr<Task> testHasTeamEnoughCarts()
     });
 }
 
-
 std::shared_ptr<Task> testHasTeamReachedAgentCapacity()
 {
   return std::make_shared<Test>([](Blackboard& bb) {
@@ -360,7 +359,7 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
   GoalSupplier goalSupplier = [](Blackboard &bb) -> tileindex_t {
     const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
     const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
-    const std::vector<tileindex_t> *occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
+    const std::vector<tileindex_t> *occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_NONCITY_POSITION);
     return pathing::getBestNightTimeLocation(bot, map, *occupiedTiles);
   };
 

@@ -6,6 +6,7 @@
 #include "GameRules.h"
 #include "Log.h"
 #include "InfluenceMap.h"
+#include "lux/annotate.hpp"
 
 namespace pathing
 {
@@ -136,7 +137,7 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::
    */
 
   constexpr float distanceWeight = -.2f;
-  constexpr float isCityWeight = +3*distanceWeight;
+  constexpr float isCityFactor = +.5f;
   constexpr float unreachableFactor = -1000.f;
   constexpr float hasAdjacentResourcesFactor = +5.f;
   constexpr float isTileOccupiedFactor = -8.f;
@@ -145,19 +146,19 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::
   tileindex_t bestTile = botTile;
   float bestScore = std::numeric_limits<float>::lowest();
   for (tileindex_t i = 0; i < map->getMapSize(); i++) {
-    bool hasAdjacentResources = std::ranges::any_of(map->getValidNeighbours(i),
-      [&](tileindex_t n) { return map->tileAt(n).getType() == TileType::RESOURCE; });
+    bool hasAdjacentResources = map->tileAt(i).getType() == TileType::RESOURCE || 
+      std::ranges::any_of(map->getValidNeighbours(i), [&](tileindex_t n) { return map->tileAt(n).getType() == TileType::RESOURCE; });
     bool isCity = map->tileAt(i).getType() == TileType::ALLY_CITY;
     if (!isCity && !hasAdjacentResources) continue;
     size_t dist = map->distanceBetween(i, botTile);
     bool isTileOccupied = std::ranges::count(occupiedTiles, i) - (i == botTile) > 0;
     float tileScore = 0
-      + isCityWeight * isCity
+      + isCityFactor * isCity
       + distanceWeight * (float)dist
       + unreachableFactor * (dist > game_rules::NIGHT_DURATION)
       + hasAdjacentResourcesFactor * hasAdjacentResources
       + isTileOccupiedFactor * isTileOccupied;
-    
+
     if (tileScore > bestScore) {
       bestScore = tileScore;
       bestTile = i;
