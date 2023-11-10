@@ -132,9 +132,12 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState,
    *   collect resources if at least one agent is in them.
    * - it is better to spread agents, as more city tiles will be able
    *   to collect at the same time
+   * - resource tiles are also valid, but are targeted only if there
+   *   is no good city to go to
    */
 
   constexpr float distanceWeight = -.2f;
+  constexpr float isCityWeight = +3*distanceWeight;
   constexpr float unreachableFactor = -1000.f;
   constexpr float hasAdjacentResourcesFactor = +5.f;
   constexpr float isTileOccupiedFactor = -8.f;
@@ -145,13 +148,14 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState,
   tileindex_t bestTile = botTile;
   float bestScore = std::numeric_limits<float>::lowest();
   for (tileindex_t i = 0; i < map->getMapSize(); i++) {
-    if (map->tileAt(i).getType() != TileType::ALLY_CITY)
-      continue;
     bool hasAdjacentResources = std::ranges::any_of(map->getValidNeighbours(i),
       [&](tileindex_t n) { return map->tileAt(n).getType() == TileType::RESOURCE; });
+    bool isCity = map->tileAt(i).getType() == TileType::ALLY_CITY;
+    if (!isCity && !hasAdjacentResources) continue;
     size_t dist = map->distanceBetween(i, botTile);
     bool isTileOccupied = std::ranges::count(occupiedTiles, i) - (i == botTile) > 0;
     float tileScore = 0
+      + isCityWeight * isCity
       + distanceWeight * (float)dist
       + unreachableFactor * (dist > game_rules::NIGHT_DURATION)
       + hasAdjacentResourcesFactor * hasAdjacentResources

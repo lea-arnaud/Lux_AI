@@ -41,3 +41,4 @@ errorlogs/
 replays/
 jobfiles.txt
 *.submit
+*.json

@@ -1,8 +1,9 @@
 #include "TurnOrder.h"
 
+#include "lux/annotate.hpp"
 #include "lux/kit.hpp"
 
-std::string TurnOrder::getAsString(const Map &map)
+std::string TurnOrder::getAsString(const Map &map) const
 {
   switch (type) {
   case TurnOrder::MOVE:        return kit::move(bot->getId(), map.getDirection(map.getTileIndex(*bot), targetTile));
@@ -14,3 +15,5 @@ std::string TurnOrder::getAsString(const Map &map)
   default: throw std::runtime_error("Unimplemented turn order " + std::to_string(type));
   }
 }
+
+std::vector<std::string> lux::Annotate::s_logs;

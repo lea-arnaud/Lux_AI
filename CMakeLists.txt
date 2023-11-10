@@ -35,6 +35,7 @@ SET( AIBOT_HEADERS
 	#Framework
 	lux/agent.hpp
 	lux/kit.hpp
+	lux/annotate.hpp
 	Log.h
 	Bot.h
 	City.h
