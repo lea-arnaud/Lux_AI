@@ -165,7 +165,7 @@ namespace kit
         std::transform(commanderOrders.begin(), ordersEnd, std::back_inserter(orders), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });
     }
 
-    player_t Agent::getPlayer(int teamId) const
+    player_t Agent::getPlayer(int teamId)
     {
         return teamId == mID ? Player::ALLY : Player::ENEMY;
     }
