@@ -43,6 +43,11 @@ public:
   Blackboard &getBlackboard() { return *m_blackboard; }
   void act() { m_behaviorTree->run(m_blackboard); }
 
+  Bot(const Bot &) = delete;
+  Bot &operator=(const Bot &) = delete;
+  Bot(Bot &&) = delete;
+  Bot &operator=(Bot &&) = delete;
+
 private:
   std::string m_id;
   int         m_x{}, m_y{};
