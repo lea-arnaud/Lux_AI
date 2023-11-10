@@ -10,28 +10,20 @@
 
 struct GameStateDiff
 {
-  std::vector<Bot> deadBots;
-  //std::vector<tileindex_t> exhaustedResourceTiles; // to be implemented (when needed)
-  //std::vector<tileindex_t> dead
-  // Tiles;
-
+  std::vector<std::unique_ptr<Bot>> deadBots;
   std::vector<Bot *> newBots;
-  //std::vector<tileindex_t> newCityTiles;
-
   std::vector<tileindex_t> updatedRoads;
 };
 
 struct GameState
 {
-  int playerId;
-
   Map map;
-  std::vector<City> cities;
-  std::vector<Bot> bots;
+  std::vector<std::unique_ptr<City>> cities;
+  std::vector<std::unique_ptr<Bot>> bots;
 
   // used to update influence maps
   std::vector<tileindex_t> resourcesIndex;
-  std::vector<Bot> citiesBot;
+  std::vector<Bot*> citiesBot;
 
   size_t playerResearchPoints[2];
 

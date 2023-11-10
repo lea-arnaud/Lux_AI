@@ -21,7 +21,6 @@ namespace kit
         m_gameState.map.setSize(m_mapWidth, m_mapHeight);
         m_gameState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
         m_gameState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
-        m_gameState.playerId = mID;
     }
 
     void Agent::ExtractGameState()
@@ -33,7 +32,6 @@ namespace kit
         newState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
         newState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
         newState.ennemyPath = std::move(oldState.ennemyPath);
-        newState.playerId = mID;
 
         while (true)
         {
@@ -73,14 +71,14 @@ namespace kit
                 int coal = std::stoi(updates[i++]);
                 int uranium = std::stoi(updates[i++]);
 
-                auto existingAgent = std::find_if(oldState.bots.begin(), oldState.bots.end(),
-                  [&unitid](const Bot &agent) { return agent.getId() == unitid; });
+                auto existingAgent = std::ranges::find_if(oldState.bots,
+                  [&unitid](const std::unique_ptr<Bot> &agent) { return agent->getId() == unitid; });
                 if (existingAgent != oldState.bots.end()) {
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
-                  stateDiff.newBots.push_back(&newState.bots.back());
                 } else {
-                  newState.bots.push_back(Bot(unitid, (UNIT_TYPE)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, (UNIT_TYPE)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
+                  stateDiff.newBots.push_back(newState.bots.back().get());
                 }
 
                 if (getPlayer(team) == Player::ENEMY) {
@@ -90,7 +88,7 @@ namespace kit
                     newState.ennemyPath.insert({ unitid, InfluenceMap{ m_mapWidth, m_mapHeight } });
                 }
 
-                Bot &updatedAgent = newState.bots.back();
+                std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
                 updatedAgent.setX(x);
                 updatedAgent.setY(y);
                 updatedAgent.setCooldown(cooldown);
@@ -105,7 +103,7 @@ namespace kit
                 std::string cityid = updates[i++];
                 float fuel = std::stof(updates[i++]);
                 float lightUpkeep = std::stof(updates[i++]);
-                newState.cities.push_back(City(cityid, getPlayer(team), fuel, lightUpkeep));
+                newState.cities.push_back(std::make_unique<City>(cityid, getPlayer(team), fuel, lightUpkeep));
             }
             else if (input_identifier == INPUT_CONSTANTS::CITY_TILES)
             {
@@ -119,21 +117,20 @@ namespace kit
                 // lux-ai does not provide ids for city units by default
                 std::string unitid = "c_" + std::to_string(x) + "_" + std::to_string(y);
                 
-                auto existingAgent = std::find_if(oldState.bots.begin(), oldState.bots.end(),
-                  [&unitid](const Bot &agent) { return agent.getId() == unitid; });
+                auto existingAgent = std::ranges::find_if(oldState.bots,
+                  [&unitid](const std::unique_ptr<Bot> &agent) { return agent->getId() == unitid; });
                 if (existingAgent != oldState.bots.end()) {
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
-                  stateDiff.newBots.push_back(&newState.bots.back());
                 } else {
-                  newState.bots.push_back(Bot(unitid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
+                  stateDiff.newBots.push_back(newState.bots.back().get());
                 }
-                Bot &updatedAgent = newState.bots.back();
-                updatedAgent.setX(x);
-                updatedAgent.setY(y);
-                updatedAgent.setCooldown(cooldown);
-                updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
-                newState.citiesBot.push_back(updatedAgent);
+                std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
+                updatedAgent->setX(x);
+                updatedAgent->setY(y);
+                updatedAgent->setCooldown(cooldown);
+                newState.citiesBot.push_back(updatedAgent.get());
                 newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);
             }
             else if (input_identifier == INPUT_CONSTANTS::ROADS)
@@ -168,7 +165,7 @@ namespace kit
         std::transform(commanderOrders.begin(), ordersEnd, std::back_inserter(orders), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });
     }
 
-    player_t Agent::getPlayer(int teamId)
+    player_t Agent::getPlayer(int teamId) const
     {
         return teamId == mID ? Player::ALLY : Player::ENEMY;
     }
