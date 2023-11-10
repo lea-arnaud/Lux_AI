@@ -10,6 +10,7 @@
 #include "TurnOrder.h"
 #include "Log.h"
 #include "AStar.h"
+#include "GameState.h"
 
 namespace nodes
 {
@@ -31,7 +32,7 @@ std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)>
 std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective();
 
 using GoalSupplier = std::function<tileindex_t(Blackboard &)>;
-using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, const Map *)>;
+using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, const GameState *)>;
 using GoalValidityChecker = std::function<bool(Blackboard &)>;
 using SimpleGoalValidityChecker = std::function<bool(const Bot *, const Map *, tileindex_t)>;
 

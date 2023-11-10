@@ -77,21 +77,20 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, nbCities);
 
-    m_gameState->map.computeInfluence();
-
     // fill in the orders list through agents behavior trees
     std::ranges::for_each(availableAgents, [&,this](const std::pair<Bot *, Archetype> &agentAndArchetype) {
         auto &[agent, archetype] = agentAndArchetype;
         tileindex_t targetTile = 1;
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
         switch (archetype) {
-        case Archetype::CITIZEN: targetTile = pathing::getBestExpansionLocation(agent, &m_gameState->map); break;
-        case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent, &m_gameState->map); break;
-        case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getBestCityFeedingLocation(agent, &m_gameState->map); break;
+        case Archetype::CITIZEN: targetTile = pathing::getBestExpansionLocation(agent, m_gameState); break;
+        case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent, m_gameState); break;
+        case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getBestCityFeedingLocation(agent, m_gameState); break;
         case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
-            //case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::BUILD_CITY; break; //TODO implement ROADMAKER cart behaviour
+        case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::MAKE_ROAD; break; //TODO implement pathing algorithm to resource
         default: break;
         }
+        
         BotObjective objective{ mission, targetTile };
         agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
         agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);

@@ -7,16 +7,12 @@
 #include "lux/kit.hpp"
 #include "Tile.h"
 #include "Bot.h"
-#include "InfluenceMap.h"
 
 class Map
 {
 private:
 	std::vector<Tile> m_tiles;
 	int m_width{}, m_height{};
-
-	InfluenceMap m_cities;
-	InfluenceMap m_resources;
 
 public:
 	Map() = default;
@@ -26,9 +22,6 @@ public:
 		m_width = width;
 		m_height = height;
 		m_tiles.resize(width * height);
-
-		m_cities.setSize(width, height);
-		m_resources.setSize(width, height);
 	}
 
 	int getWidth() const { return m_width; }
@@ -47,11 +40,6 @@ public:
 	tileindex_t getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction) const;
 	std::vector<tileindex_t> getValidNeighbours(tileindex_t source, bool canMoveOverCity = true) const;
 	bool isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const;
-	// TODO: add parameter to choose which map to compute
-	void computeInfluence();
-
-	const InfluenceMap &getCitiesMap() const { return m_cities; }
-	const InfluenceMap &getRessourcesMap() const { return m_resources; }
 };
 
 #endif
