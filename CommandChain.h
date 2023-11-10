@@ -16,6 +16,7 @@ struct BotObjective
     GO_BLOCK_PATH,
     BUILD_CITY,
     FEED_CITY,
+	MAKE_ROAD,
   } type;
 
   tileindex_t targetTile;

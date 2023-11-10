@@ -83,9 +83,10 @@ std::vector<TurnOrder> Commander::getTurnOrders()
         case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent, &m_gameState->map); break;
         case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getBestCityFeedingLocation(agent, &m_gameState->map); break;
         case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
-            //case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::BUILD_CITY; break; //TODO implement ROADMAKER cart behaviour
+        case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::MAKE_ROAD; break; //TODO implement pathing algorithm to resource
         default: break;
         }
+        
         BotObjective objective{ mission, targetTile };
         agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
         agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);

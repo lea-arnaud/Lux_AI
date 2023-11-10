@@ -371,7 +371,7 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
     "closest-city");
 }
 
-// The city create a worker if there is less than 7 workers
+// The city create a worker if there is less than 6 workers
 std::shared_ptr<Task> taskCityCreateWorker()
 {
   return std::make_shared<Selector>(
@@ -460,4 +460,22 @@ std::shared_ptr<Task> behaviorWorker()
     );
 }
 
+std::shared_ptr<Task> behaviorCart()
+{
+    auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
+    taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+    taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+
+    return
+        std::make_shared<Alternative>(
+          testIsDawnOrNight(),
+          taskMoveToBestTileAtNight(),
+          std::make_shared<Sequence>(
+              taskPlaySquadProvidedObjective,
+              taskLog("Agent had nothing to do!")
+          )
+        );
 }
+  
+}
+
