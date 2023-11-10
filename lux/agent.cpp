@@ -19,6 +19,8 @@ namespace kit
         m_mapWidth = stoi(map_parts[0]);
         m_mapHeight = stoi(map_parts[1]);
         m_gameState.map.setSize(m_mapWidth, m_mapHeight);
+        m_gameState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
+        m_gameState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
         m_gameState.playerId = mID;
     }
 
@@ -30,6 +32,7 @@ namespace kit
         newState.map.setSize(m_mapWidth, m_mapHeight);
         newState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
         newState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
+        newState.ennemyPath = std::move(oldState.ennemyPath);
         newState.playerId = mID;
 
         while (true)
@@ -79,6 +82,14 @@ namespace kit
                 } else {
                   newState.bots.push_back(Bot(unitid, (UNIT_TYPE)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
                 }
+
+                if (getPlayer(team) == Player::ENEMY) {
+                  if (newState.ennemyPath.contains(unitid))
+                    newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
+                  else
+                    newState.ennemyPath.insert({ unitid, InfluenceMap{ m_mapWidth, m_mapHeight } });
+                }
+
                 Bot &updatedAgent = newState.bots.back();
                 updatedAgent.setX(x);
                 updatedAgent.setY(y);

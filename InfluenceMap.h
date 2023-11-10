@@ -76,6 +76,8 @@ public:
 
   void propagate(int index, float initialInfluence, float (*propagationFunction)(float, float));
   void setValueAtIndex(int index, float value);
+  void addValueAtIndex(int index, float value);
+  void multiplyValueAtIndex(int index, float value);
 
   void addMap(const InfluenceMap &influenceMap, float weight = 1.0f);
   void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);

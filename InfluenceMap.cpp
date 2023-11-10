@@ -18,6 +18,16 @@ void InfluenceMap::setValueAtIndex(int index, float value)
   m_map[index] = value;
 }
 
+void InfluenceMap::addValueAtIndex(int index, float value)
+{
+  m_map[index] += value;
+}
+
+void InfluenceMap::multiplyValueAtIndex(int index, float value)
+{
+  m_map[index] *= value;
+}
+
 void InfluenceMap::addMap(const InfluenceMap &influenceMap, float weight)
 {
   std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),

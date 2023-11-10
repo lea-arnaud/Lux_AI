@@ -37,6 +37,7 @@ struct GameState
 
   InfluenceMap citiesInfluence;
   InfluenceMap resourcesInfluence;
+  std::unordered_map<std::string, InfluenceMap> ennemyPath;
 
   std::optional<const Bot*> getEntityAt(tileindex_t tile) const { auto [x, y] = map.getTilePosition(tile); return getEntityAt(x, y); }
   std::optional<const Bot*> getEntityAt(int x, int y) const;
