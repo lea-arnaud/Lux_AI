@@ -14,7 +14,7 @@ namespace kit
         void GetTurnOrders(std::vector<std::string>& orders);
 
     private:
-        player_t getPlayer(int teamId);
+        player_t getPlayer(int teamId) const;
         static kit::ResourceType getResourceType(const std::string &name);
 
     private:

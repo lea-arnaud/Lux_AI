@@ -19,7 +19,6 @@ namespace kit
         m_mapWidth = stoi(map_parts[0]);
         m_mapHeight = stoi(map_parts[1]);
         m_gameState.map.setSize(m_mapWidth, m_mapHeight);
-        m_gameState.playerId = mID;
     }
 
     void Agent::ExtractGameState()
@@ -30,7 +29,6 @@ namespace kit
         newState.map.setSize(m_mapWidth, m_mapHeight);
         newState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
         newState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
-        newState.playerId = mID;
 
         while (true)
         {
@@ -156,7 +154,7 @@ namespace kit
         std::transform(commanderOrders.begin(), ordersEnd, std::back_inserter(orders), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });
     }
 
-    player_t Agent::getPlayer(int teamId)
+    player_t Agent::getPlayer(int teamId) const
     {
         return teamId == mID ? Player::ALLY : Player::ENEMY;
     }
