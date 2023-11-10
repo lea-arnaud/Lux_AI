@@ -19,6 +19,7 @@ namespace kit
         m_mapWidth = stoi(map_parts[0]);
         m_mapHeight = stoi(map_parts[1]);
         m_gameState.map.setSize(m_mapWidth, m_mapHeight);
+        m_gameState.playerId = mID;
     }
 
     void Agent::ExtractGameState()
@@ -27,6 +28,9 @@ namespace kit
         GameState newState;
         GameStateDiff stateDiff;
         newState.map.setSize(m_mapWidth, m_mapHeight);
+        newState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
+        newState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
+        newState.playerId = mID;
 
         while (true)
         {
@@ -118,7 +122,7 @@ namespace kit
                 updatedAgent.setY(y);
                 updatedAgent.setCooldown(cooldown);
                 updatedAgent.getBlackboard().insertData(bbn::AGENT_SELF, &updatedAgent);
-                newState.citiesBot.push_back(&updatedAgent);
+                newState.citiesBot.push_back(updatedAgent);
                 newState.map.tileAt(x, y).setType(getPlayer(team) == Player::ALLY ? TileType::ALLY_CITY : TileType::ENEMY_CITY);
             }
             else if (input_identifier == INPUT_CONSTANTS::ROADS)
@@ -145,6 +149,7 @@ namespace kit
         // sense
         // (already done by ExtractGameState)
         // think
+        m_gameState.computeInfluence(m_gameStateDiff);
         m_commander.updateHighLevelObjectives(&m_gameState, m_gameStateDiff);
         // act
         std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders();

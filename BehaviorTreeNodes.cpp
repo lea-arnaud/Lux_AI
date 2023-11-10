@@ -247,8 +247,8 @@ std::shared_ptr<Task> taskMoveTo(
 GoalSupplier adaptGoalSupplier(SimpleGoalSupplier &&simpleSupplier) {
   return [simpleSupplier = std::move(simpleSupplier)](Blackboard &bb) -> tileindex_t {
     const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
-    return simpleSupplier(bot, map);
+    const GameState *gameState = bb.getData<GameState *>(bbn::GLOBAL_GAME_STATE);
+    return simpleSupplier(bot, gameState);
   };
 }
 
@@ -352,9 +352,9 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
 
   GoalSupplier goalSupplier = [](Blackboard &bb) -> tileindex_t {
     const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
+    const GameState *gameState = bb.getData<GameState *>(bbn::GLOBAL_GAME_STATE);
     const std::vector<tileindex_t> *occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
-    return pathing::getBestNightTimeLocation(bot, map, *occupiedTiles);
+    return pathing::getBestNightTimeLocation(bot, gameState, *occupiedTiles);
   };
 
   return taskMoveTo(

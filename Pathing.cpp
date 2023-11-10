@@ -32,9 +32,11 @@ bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, con
   return true;
 }
 
-tileindex_t getResourceFetchingLocation(const Bot *bot, const Map *map)
+tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameState)
 {
   const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
+
+  const Map *map = &gameState->map;
 
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
@@ -70,10 +72,11 @@ tileindex_t getResourceFetchingLocation(const Bot *bot, const Map *map)
   return bestTile;
 }
 
-tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
+tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameState)
 {
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
+  const Map *map = &gameState->map;
   for (tileindex_t i = 0; i < map->getMapSize(); i++)
   {
     if(map->tileAt(i).getType() != TileType::EMPTY) continue;
@@ -97,21 +100,19 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const Map *map)
   return bestTile;
 }
 
-tileindex_t getBestExpansionLocation(const Bot* bot, const Map* map)
+tileindex_t getBestExpansionLocation(const Bot* bot, const GameState *gameState)
 {
-#if 1
-  InfluenceMap workingMap{ map->getCitiesMap() };
+
+  InfluenceMap workingMap{ gameState->citiesInfluence };
   //workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
   return static_cast<tileindex_t>(workingMap.getHighestPoint());
-#else
-  return getBestCityBuildingLocation(bot, map);
-#endif
 }
 
-tileindex_t getBestCityFeedingLocation(const Bot* bot, const Map* map)
+tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameState)
 {
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
+  const Map *map = &gameState->map;
   for (tileindex_t i = 0; i < map->getMapSize(); i++) {
     if(map->tileAt(i).getType() != TileType::ALLY_CITY) continue;
     float tileScore = DISTANCE_WEIGHT * map->distanceBetween(i, map->getTileIndex(*bot));
@@ -123,7 +124,7 @@ tileindex_t getBestCityFeedingLocation(const Bot* bot, const Map* map)
   return bestTile;
 }
 
-tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::vector<tileindex_t> &occupiedTiles)
+tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState, const std::vector<tileindex_t> &occupiedTiles)
 {
   /*
    * At night, agents try to reach the nearest city to avoid dying
@@ -137,6 +138,8 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const Map *map, const std::
   constexpr float unreachableFactor = -1000.f;
   constexpr float hasAdjacentResourcesFactor = +5.f;
   constexpr float isTileOccupiedFactor = -8.f;
+
+  const Map *map = &gameState->map;
 
   tileindex_t botTile = map->getTileIndex(*bot);
   tileindex_t bestTile = botTile;
