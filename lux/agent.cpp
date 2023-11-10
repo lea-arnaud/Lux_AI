@@ -89,12 +89,12 @@ namespace kit
                 }
 
                 std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
-                updatedAgent.setX(x);
-                updatedAgent.setY(y);
-                updatedAgent.setCooldown(cooldown);
-                updatedAgent.setWoodAmount(wood);
-                updatedAgent.setCoalAmount(coal);
-                updatedAgent.setUraniumAmount(uranium);
+                updatedAgent->setX(x);
+                updatedAgent->setY(y);
+                updatedAgent->setCooldown(cooldown);
+                updatedAgent->setWoodAmount(wood);
+                updatedAgent->setCoalAmount(coal);
+                updatedAgent->setUraniumAmount(uranium);
             }
             else if (input_identifier == INPUT_CONSTANTS::CITY)
             {
