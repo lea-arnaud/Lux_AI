@@ -52,6 +52,8 @@ SET( AIBOT_HEADERS
 	GameRules.h
 	AStar.h
 	InfluenceMap.h
+	IAParameters.h
+	Statistics.h
 )
 
 SET( AIBOT_SRC 

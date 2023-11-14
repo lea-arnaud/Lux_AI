@@ -49,10 +49,12 @@ struct SquadRequirement
 	size_t botNb;
 	size_t cartNb;
 	size_t priority;
+	int start_x;
+	int start_y;
 	int dest_x;
 	int dest_y;
 	Archetype mission;
-	SquadRequirement(size_t bNb, size_t cNb, size_t p, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), dest_x(x), dest_y(y), mission(order){}
+	SquadRequirement(size_t bNb, size_t cNb, size_t p, int sx, int sy, int dx, int dy, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), start_x(sx), start_y(sy), dest_x(dx), dest_y(dy), mission(order){}
 };
 
 struct CityCluster {
