@@ -103,7 +103,6 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameSta
 
 tileindex_t getBestExpansionLocation(const Bot* bot, const GameState *gameState)
 {
-
   InfluenceMap workingMap{ gameState->citiesInfluence };
   //workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
   return static_cast<tileindex_t>(workingMap.getHighestPoint());
@@ -169,6 +168,18 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState,
   }
 
   return bestTile;
+}
+
+std::vector<tileindex_t> getResourceFetchingLocation2(const Bot *bot, const GameState *gameState, int n)
+{
+  static constexpr float DISTANCE_WEIGHT = 1.0f;
+
+  InfluenceMap workingMap{ gameState->resourcesInfluence };
+  workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), agentTemplate, DISTANCE_WEIGHT);
+  workingMap.normalize();
+  workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), clusterTemplate, 2.0f);
+
+  return workingMap.getNHighestPoints(n);
 }
 
 }

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-void InfluenceMap::propagate(int index, float initialInfluence, float(*propagationFunction)(float, float))
+void InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float))
 {
   auto [x1, y1] = getCoord(index);
 
@@ -13,17 +13,17 @@ void InfluenceMap::propagate(int index, float initialInfluence, float(*propagati
   }
 }
 
-void InfluenceMap::setValueAtIndex(int index, float value)
+void InfluenceMap::setValueAtIndex(tileindex_t index, float value)
 {
   m_map[index] = value;
 }
 
-void InfluenceMap::addValueAtIndex(int index, float value)
+void InfluenceMap::addValueAtIndex(tileindex_t index, float value)
 {
   m_map[index] += value;
 }
 
-void InfluenceMap::multiplyValueAtIndex(int index, float value)
+void InfluenceMap::multiplyValueAtIndex(tileindex_t index, float value)
 {
   m_map[index] *= value;
 }
@@ -63,13 +63,13 @@ void InfluenceMap::flip()
       [](float score) { return 1.0f - score; });
 }
 
-int InfluenceMap::getHighestPoint() const
+tileindex_t InfluenceMap::getHighestPoint() const
 {
   auto maxIterator = std::max_element(m_map.begin(), m_map.end());
   return static_cast<int>(std::distance(m_map.begin(), maxIterator));
 }
 
-std::vector<int> InfluenceMap::getNHighestPoints(int n) const
+std::vector<tileindex_t> InfluenceMap::getNHighestPoints(int n) const
 {
   // Create a vector of pairs where the first element of the pair is the value
   // and the second element is the index
@@ -81,8 +81,8 @@ std::vector<int> InfluenceMap::getNHighestPoints(int n) const
   // Partially sort the indexed vector based on the values
   std::partial_sort(indexedVec.begin(), indexedVec.begin() + n, indexedVec.end(), std::greater());
 
-  std::vector<int> resultIndices(n);
-  for (int i = 0; i < n; ++i) {
+  std::vector<tileindex_t> resultIndices(n);
+  for (tileindex_t i = 0; i < n; ++i) {
     resultIndices[i] = indexedVec[i].second;
   }
 

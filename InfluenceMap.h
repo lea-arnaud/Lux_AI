@@ -5,11 +5,19 @@
 #include <type_traits>
 #include <vector>
 #include <string>
+#include "Types.h"
 
 template <class T>
 constexpr T absolute(const T &x, std::enable_if_t<std::is_arithmetic_v<T>> * = nullptr)
 {
   return x < 0 ? -x : x;
+}
+
+template <typename T>
+constexpr T power(T num, unsigned int pow)
+{
+  return (pow >= sizeof(unsigned int)*8) ? 0 :
+    pow == 0 ? 1 : num * power(num, pow - 1);
 }
 
 template <unsigned int W, unsigned int H>
@@ -65,8 +73,8 @@ public:
     m_map.resize(width * height, 0.0f);
   }
 
-  int getIndex(int x, int y) const { return x + y * m_width; }
-  std::pair<int, int> getCoord(int index) const { return { index % m_width, index / m_width }; }
+  tileindex_t getIndex(int x, int y) const { return x + y * m_width; }
+  std::pair<int, int> getCoord(tileindex_t index) const { return { index % m_width, index / m_width }; }
   std::pair<int, int> getCenter() const { return { m_width / 2, m_height / 2 }; }
   int getSize() const { return m_width * m_height; }
   int getWidth() const { return m_width; }
@@ -74,16 +82,16 @@ public:
 
   void clear() { std::fill(m_map.begin(), m_map.end(), 0.0f); }
 
-  void propagate(int index, float initialInfluence, float (*propagationFunction)(float, float));
-  void setValueAtIndex(int index, float value);
-  void addValueAtIndex(int index, float value);
-  void multiplyValueAtIndex(int index, float value);
+  void propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float));
+  void setValueAtIndex(tileindex_t index, float value);
+  void addValueAtIndex(tileindex_t index, float value);
+  void multiplyValueAtIndex(tileindex_t index, float value);
 
   void addMap(const InfluenceMap &influenceMap, float weight = 1.0f);
   void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);
 
   template <unsigned int W, unsigned int H>
-  void addTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  void addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
     int deltaX = index % m_width - W / 2;
     int deltaY = index / m_width - H / 2;
@@ -99,7 +107,7 @@ public:
   }
 
   template <unsigned int W, unsigned int H>
-  void multiplyTemplateAtIndex(int index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  void multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
     int deltaX = index % m_width - W / 2;
     int deltaY = index / m_width - H / 2;
@@ -117,8 +125,8 @@ public:
   void normalize();
   void flip();
 
-  int getHighestPoint() const;
-  std::vector<int> getNHighestPoints(int n) const;
+  tileindex_t getHighestPoint() const;
+  std::vector<tileindex_t> getNHighestPoints(int n) const;
 
   std::string toJson() const
   {
@@ -141,10 +149,10 @@ constexpr InfluenceTemplate<9, 9> agentTemplate{ 4, 4, 1.0f,
                                          return influence - (influence  * distance / 8.0f);
                                        } };
 
-constexpr InfluenceTemplate<9, 9> ressourceTemplate{ 4, 4, 1.0f,
+constexpr InfluenceTemplate<5, 5> resourceTemplate{ 2, 2, 1.0f,
                                        [](float influence, float distance)
                                        {
-                                         return influence - (influence  * distance / 8.0f);
+                                         return influence - (influence  * distance / 4.0f);
                                        } };
 
 constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
@@ -152,5 +160,11 @@ constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
                                        {
                                          return distance == 1.0f ? 1.0f : 0.5f;
                                        } };
+
+constexpr InfluenceTemplate<9, 9> clusterTemplate{ 4, 4, 1.0f,
+                                        [](float influence, float distance)
+                                        {
+                                          return influence - power(influence  * distance / 8.0f, 2);
+                                        } };
 
 #endif

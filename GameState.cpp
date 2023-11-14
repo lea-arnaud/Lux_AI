@@ -1,5 +1,6 @@
 #include "GameState.h"
 #include <algorithm>
+#include "GameRules.h"
 
 std::optional<const Bot*> GameState::getEntityAt(int x, int y) const
 {
@@ -11,7 +12,7 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
 {
   std::ranges::for_each(citiesBot,
     [&](const Bot *bot) {
-      int index = static_cast<int>(map.getTileIndex(bot->getX(), bot->getY()));
+      tileindex_t index = map.getTileIndex(bot->getX(), bot->getY());
       if (bot->getTeam() == Player::ALLY)
         citiesInfluence.addTemplateAtIndex(index, cityTemplate);
       citiesInfluence.setValueAtIndex(index, -100.0f);
@@ -20,7 +21,25 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
   std::ranges::for_each(resourcesIndex,
     [&](tileindex_t index) {
       // TODO: prendre en compte research point et le type de ressource
-      resourcesInfluence.addTemplateAtIndex(static_cast<int>(index), ressourceTemplate);
-      citiesInfluence.setValueAtIndex(static_cast<int>(index), -100.0f);
+      float resourceScale = 0.0f;
+      Tile tile = map.tileAt(index);
+      
+      switch (tile.getResourceType()) {
+      case kit::ResourceType::wood:
+        if (playerResearchPoints[Player::ALLY] < game_rules::MIN_RESEARCH_WOOD) break;
+        resourceScale = tile.getResourceAmount() * game_rules::COLLECT_RATE_WOOD * game_rules::FUEL_VALUE_WOOD;
+        break;
+      case kit::ResourceType::coal:
+        if (playerResearchPoints[Player::ALLY] < game_rules::MIN_RESEARCH_COAL) break;
+        resourceScale = tile.getResourceAmount() * game_rules::COLLECT_RATE_COAL * game_rules::FUEL_VALUE_COAL;
+        break;
+      case kit::ResourceType::uranium:
+        if (playerResearchPoints[Player::ALLY] < game_rules::MIN_RESEARCH_URANIUM) break;
+        resourceScale = tile.getResourceAmount() * game_rules::COLLECT_RATE_URANIUM * game_rules::FUEL_VALUE_URANIUM;
+        break;
+      }
+
+      resourcesInfluence.addTemplateAtIndex(index, resourceTemplate, resourceScale);
+      citiesInfluence.setValueAtIndex(index, -100.0f);
     });
 }
