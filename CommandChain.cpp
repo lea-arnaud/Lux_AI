@@ -101,14 +101,6 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     // not critical, but keeping dandling pointers alive is never a good idea
     m_globalBlackboard->removeData(bbn::GLOBAL_ORDERS_LIST);
 
-    // <>TO BE REMOVED
-    for(auto t : pathing::getManyResourceFetchingLocations(m_squads[0].getAgents()[0], m_gameState, 10)) {
-      auto [x, y] = m_gameState->map.getTilePosition(t);
-      lux::Annotate::circle(x, y);
-    }
-    lux::Annotate::x(m_squads[0].getAgents()[0]->getX(), m_squads[0].getAgents()[0]->getY());
-    // </>
-
     return orders;
 }
 
