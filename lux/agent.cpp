@@ -83,9 +83,10 @@ namespace kit
 
                 if (getPlayer(team) == Player::ENEMY) {
                   if (newState.ennemyPath.contains(unitid))
-                    newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
-                  else
+                    newState.ennemyPath[unitid].addMap(newState.ennemyPath[unitid], -1.0f/50.0f);
+                  else 
                     newState.ennemyPath.insert({ unitid, InfluenceMap{ m_mapWidth, m_mapHeight } });
+                  newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
                 }
 
                 std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
