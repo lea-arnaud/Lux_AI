@@ -38,7 +38,7 @@ using SimpleGoalValidityChecker = std::function<bool(const Bot *, const Map *, t
 
 std::shared_ptr<Task> taskMoveTo(GoalSupplier &&goalSupplier, GoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype);
 std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype);
-std::shared_ptr<Task> taskFetchResources();
+std::shared_ptr<Task> taskFetchResources(float distanceWeight=-1.f);
 std::shared_ptr<Task> taskBuildCity();
 std::shared_ptr<Task> taskFeedCity();
 

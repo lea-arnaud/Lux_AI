@@ -143,16 +143,20 @@ public:
   }
 };
 
+// TODO have influence templates in a separate namespace
+// and probably put some comments on each, depending on the use-case there 
+// could be two templates with the same name but different values
+
 constexpr InfluenceTemplate<9, 9> agentTemplate{ 4, 4, 1.0f,
                                        [](float influence, float distance)
                                        {
-                                         return influence - (influence  * distance / 8.0f);
+                                         return influence * (1 - distance / 8.0f);
                                        } };
 
 constexpr InfluenceTemplate<5, 5> resourceTemplate{ 2, 2, 1.0f,
                                        [](float influence, float distance)
                                        {
-                                         return influence - (influence  * distance / 4.0f);
+                                         return influence * (1 - distance / 4.0f);
                                        } };
 
 constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
@@ -164,7 +168,7 @@ constexpr InfluenceTemplate<3, 3> cityTemplate{ 1, 1, 0.0f,
 constexpr InfluenceTemplate<9, 9> clusterTemplate{ 4, 4, 1.0f,
                                         [](float influence, float distance)
                                         {
-                                          return influence - power(influence  * distance / 8.0f, 2);
+                                          return influence - power(influence * distance / 8.0f, 2);
                                         } };
 
 #endif

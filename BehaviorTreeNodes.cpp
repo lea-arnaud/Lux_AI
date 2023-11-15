@@ -272,7 +272,7 @@ std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalVa
   return taskMoveTo(adaptGoalSupplier(std::move(goalSupplier)), adaptGoalValidityChecker(std::move(goalValidityChecker)), pathFlags, pathtype);
 }
 
-std::shared_ptr<Task> taskFetchResources()
+std::shared_ptr<Task> taskFetchResources(float distanceWeight)
 {
   auto testIsValidResourceFetchingLocation = [](const Bot *bot, const Map *map, tileindex_t goal) {
     if (map->tileAt(goal).getType() == TileType::RESOURCE) return true;
@@ -282,10 +282,14 @@ std::shared_ptr<Task> taskFetchResources()
     });
   };
 
+  auto goalFinder = [distanceWeight](const Bot *bot, const GameState *gameState) -> tileindex_t {
+    return pathing::getResourceFetchingLocation(bot, gameState, distanceWeight);
+  };
+
   return std::make_shared<Selector>(
     testIsAgentFullOfResources(),
     std::make_shared<Sequence>(
-      taskMoveTo(pathing::getResourceFetchingLocation, testIsValidResourceFetchingLocation, PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES, "resource-fetching-site"),
+      taskMoveTo(goalFinder, testIsValidResourceFetchingLocation, PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES, "resource-fetching-site"),
       taskLog("Collecting resources"),
       taskPlayAgentTurn([](const Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
     )
@@ -327,7 +331,7 @@ std::shared_ptr<Task> taskFeedCity()
   };
 
   return std::make_shared<Sequence>(
-    taskFetchResources(),
+    taskFetchResources(-3.f),
     taskMoveTo(
       goalSupplierFromAgentObjective(),
       testIsGoalValidFriendlyCityTile,

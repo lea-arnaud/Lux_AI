@@ -27,15 +27,15 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
       switch (tile.getResourceType()) {
       case kit::ResourceType::wood:
         if (playerResearchPoints[Player::ALLY] < game_rules::MIN_RESEARCH_WOOD) break;
-        resourceScale = tile.getResourceAmount() * game_rules::COLLECT_RATE_WOOD * game_rules::FUEL_VALUE_WOOD;
+        resourceScale = static_cast<float>(tile.getResourceAmount() * game_rules::COLLECT_RATE_WOOD * game_rules::FUEL_VALUE_WOOD);
         break;
       case kit::ResourceType::coal:
         if (playerResearchPoints[Player::ALLY] < game_rules::MIN_RESEARCH_COAL) break;
-        resourceScale = tile.getResourceAmount() * game_rules::COLLECT_RATE_COAL * game_rules::FUEL_VALUE_COAL;
+        resourceScale = static_cast<float>(tile.getResourceAmount() * game_rules::COLLECT_RATE_COAL * game_rules::FUEL_VALUE_COAL);
         break;
       case kit::ResourceType::uranium:
         if (playerResearchPoints[Player::ALLY] < game_rules::MIN_RESEARCH_URANIUM) break;
-        resourceScale = tile.getResourceAmount() * game_rules::COLLECT_RATE_URANIUM * game_rules::FUEL_VALUE_URANIUM;
+        resourceScale = static_cast<float>(tile.getResourceAmount() * game_rules::COLLECT_RATE_URANIUM * game_rules::FUEL_VALUE_URANIUM);
         break;
       }
 
