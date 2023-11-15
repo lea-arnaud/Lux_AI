@@ -53,6 +53,7 @@ SET( AIBOT_HEADERS
 	AStar.h
 	InfluenceMap.h
 	Benchmarking.h
+	IAParams.h
 )
 
 SET( AIBOT_SRC 
