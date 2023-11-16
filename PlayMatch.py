@@ -8,7 +8,7 @@ import multiprocessing
 import glob
 
 seeds = [200]
-bots = ["build-solution-x64\Debug\\1.exe", "build-solution-x64\Debug\\EquipeA.exe"]
+bots = ["build-solution-x64\Debug\\1.exe", "build-solution-x64\Debug\\1.exe"]
 
 def is_env_var_set(name):
     return name in os.environ and os.environ[name] != ''

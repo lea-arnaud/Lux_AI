@@ -22,7 +22,7 @@ struct BotObjective
   tileindex_t targetTile;
 };
 
-enum Archetype
+enum class Archetype
 {
 	SETTLER, //constructs cityTiles outside main cities
 	CITIZEN, //constructs cityTiles inside main cities
@@ -35,26 +35,33 @@ enum Archetype
 class Squad
 {
 public:
-	Squad(std::vector<Bot *> bots, Archetype order) : m_agents(std::move(bots)), type(order) {}
+	Squad(std::vector<Bot *> bots, Archetype type, tileindex_t archetypeTargetTile)
+	  : m_agents(std::move(bots)), m_type(type), m_targetTile(archetypeTargetTile)
+	{}
+
 	std::vector<Bot *> &getAgents() { return m_agents; }
-	Archetype getArchetype() const { return type; }
+	Archetype getArchetype() const { return m_type; }
+	tileindex_t getTargetTile() const { return m_targetTile; }
 
 private:
 	std::vector<Bot *> m_agents;
-	Archetype type;
+	Archetype m_type;
+	tileindex_t m_targetTile;
 };
 
 struct SquadRequirement
 {
+	static constexpr tileindex_t ANY_TARGET = -1;
+
 	size_t botNb;
 	size_t cartNb;
 	size_t priority;
-	unsigned int dest_x;
-	unsigned int dest_y;
+	tileindex_t missionTarget;
 	Archetype mission;
-	SquadRequirement(size_t bNb, size_t cNb, size_t p, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), mission(order){}
-	void setDestination(unsigned int x, unsigned int y) { dest_x = x; dest_y = y; }
-	void setDestination(std::pair<unsigned int, unsigned int> p) { dest_x = p.first; dest_y = p.second; }
+	SquadRequirement() = default;
+	SquadRequirement(size_t bNb, size_t cNb, size_t p, Archetype mission, tileindex_t missionTarget)
+	  : botNb(bNb), cartNb(cNb), priority(p), mission(mission), missionTarget(missionTarget)
+	{}
 };
 
 struct CityCluster {
@@ -87,11 +94,12 @@ public:
 
 	std::vector<EnemySquadInfo> getEnemyStance(const GameState &gameState);
 	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState);
-	std::vector<Squad> createSquads(const std::vector<SquadRequirement> &agentRepartition, GameState* gameState);
+	std::vector<Squad> createSquads(const std::vector<SquadRequirement> &squadRequirements, GameState* gameState);
 
 private:
-  int getDistanceToClosestResource(int x, int y, const Map &map);
-  std::array<std::vector<CityCluster>, Player::COUNT> getCityClusters(const GameState &gameState);
+	// creates clusters based on distance, does not quite return the cities provided by lux-ai because
+	// two city tiles that are not adjacent but close enough are considered to be in the same cluster
+	std::array<std::vector<CityCluster>, Player::COUNT> getCityClusters(const GameState &gameState);
 };
 
 class Commander
@@ -106,16 +114,14 @@ private:
 	Strategy currentStrategy;
 
 public:
-  Commander();
-  void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);
-  std::vector<TurnOrder> getTurnOrders();
+	Commander();
+	void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);
+	std::vector<TurnOrder> getTurnOrders();
 
-  bool shouldUpdateSquads(const GameStateDiff &diff, const std::vector<EnemySquadInfo> &newEnemyStance);
-  void rearrangeSquads(const GameStateDiff &diff);
+	bool shouldUpdateSquads(const GameStateDiff &diff, const std::vector<EnemySquadInfo> &newEnemyStance);
+	void rearrangeSquads(const GameStateDiff &diff);
 
 	std::shared_ptr<Blackboard> getBlackBoard() { return m_globalBlackboard; }
-
-  void commandSquads(bool interrupt) {}
 };
 
 #endif

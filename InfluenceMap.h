@@ -144,10 +144,10 @@ public:
   }
 
   // Use to compare maps of similar size
-  float getSimilarity(InfluenceMap map2, float similarityTolerance = 1.f)
+  float getSimilarity(InfluenceMap map2, float similarityTolerance = 1.f) const
   {
       if (getWidth() != map2.getWidth() || getHeight() != map2.getHeight())
-          throw 1; // I don't know how to make exceptions T-T
+          throw std::runtime_error("Cannot compare maps of different sizes");
 
       float similarity = 0;
       for (int i = 0; i < getSize(); i++)
@@ -182,7 +182,7 @@ public:
       return std::pair<tileindex_t, tileindex_t>(start, end);
   }
 
-  bool covers(InfluenceMap mapToCover, float coverageNeeded)
+  bool covers(InfluenceMap mapToCover, float coverageNeeded) const
   {
       float total = 0;
       float covered = 0;
@@ -198,7 +198,7 @@ public:
       return covered/total*100.f > coverageNeeded;
   }
 
-  bool approachesPoint(int tile_x, int tile_y, int length, int step)
+  bool approachesPoint(int tile_x, int tile_y, int length, int step) const
   {
       //we collect the points corresponding to each turn - i * step, for i in [|0, length/step|]
       std::vector<std::pair<int, float>> distances{};
@@ -210,12 +210,12 @@ public:
           for (int j = 0; j < length; j += step) {
               //this should be verified for one tile only, so we're gonna break once it is verified
               if (m_map[i] <= j / length && m_map[i] >(j-1)/length) {
-                  distances.push_back(std::pair<int, float>(j, std::sqrt((tile_x - x) * (tile_x - x) + (tile_y - y) * (tile_y - y))));
+                  distances.emplace_back(j, std::sqrtf((float)((tile_x - x) * (tile_x - x) + (tile_y - y) * (tile_y - y))));
                   break;
               }
           }
       }
-      std::sort(distances.begin(), distances.end());//[](std::pair<int, float> d1, std::pair<int, float> d2) -> bool { return d1.first < d2.first; });
+      std::ranges::sort(distances);//[](std::pair<int, float> d1, std::pair<int, float> d2) -> bool { return d1.first < d2.first; });
       for (int i = 1; i < distances.size(); i++)
       {
           if (distances[i-1].second > distances[i].second) return false;
@@ -230,7 +230,7 @@ public:
       {
           if (m_map[i] > 0) valuedPoints.push_back(i);
       }
-      std::mt19937 rand{ std::random_device{}()};
+      std::mt19937 rand{ std::random_device{}()}; // FIX! creating a random engine is not cheap! it should go somewhere accessible (and probably thread_local)
       return getCoord(valuedPoints[rand()%valuedPoints.size()]);
   }
 };
