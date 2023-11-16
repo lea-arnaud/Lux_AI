@@ -12,7 +12,7 @@
 
 int main()
 {
-    //std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
+    std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
     int playedTurns = 360; // set to only play up to that turn
     if (playedTurns != 360) std::cerr << "WITH MAX TURN PLAYED " << playedTurns << std::endl;
 

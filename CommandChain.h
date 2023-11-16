@@ -49,12 +49,12 @@ struct SquadRequirement
 	size_t botNb;
 	size_t cartNb;
 	size_t priority;
-	unsigned int start_x;
-	unsigned int start_y;
 	unsigned int dest_x;
 	unsigned int dest_y;
 	Archetype mission;
-	SquadRequirement(size_t bNb, size_t cNb, size_t p, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), dest_x(x), dest_y(y), mission(order){}
+	SquadRequirement(size_t bNb, size_t cNb, size_t p, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), mission(order){}
+	void setDestination(unsigned int x, unsigned int y) { dest_x = x; dest_y = y; }
+	void setDestination(std::pair<unsigned int, unsigned int> p) { dest_x = p.first; dest_y = p.second; }
 };
 
 struct CityCluster {
@@ -74,6 +74,10 @@ struct EnemySquadInfo
 	size_t botNb;
 	size_t cartNb;
 	EnemySquadInfo(size_t bNb, size_t cNb, InfluenceMap path, Archetype order) : botNb(bNb), cartNb(cNb), path(path), mission(order) {}
+	void setStart(unsigned int x, unsigned int y) { start_x = x; start_y = y; }
+	void setStart(std::pair<unsigned int, unsigned int> p) { start_x = p.first; start_y = p.second; }
+	void setDestination(unsigned int x, unsigned int y) { dest_x = x; dest_y = y; }
+	void setDestination(std::pair<unsigned int, unsigned int> p) { dest_x = p.first; dest_y = p.second; }
 };
 
 class Strategy

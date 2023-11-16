@@ -9,6 +9,7 @@
 #include "InfluenceMap.h"
 #include "Types.h"
 #include "lux/annotate.hpp"
+#include "IAParams.h"
 
 
 Commander::Commander()
@@ -166,10 +167,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 
     std::vector<std::string> seenIds{}; 
 
-    // TODO add to IAParams
-    constexpr float similarPercentage = 80.f;
-    constexpr float similarityTolerance = 3.f;
-
     for(const std::unique_ptr<Bot> &bot : gameState.bots) {
       // We don't look at enemies nor cities
       if (bot->getType() == UNIT_TYPE::CITY || bot->getTeam() != Player::ENEMY)
@@ -184,7 +181,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       // get bot path
       auto path = gameState.ennemyPath.at(bot->getId());
 
-      EnemySquadInfo enemySquadInfo{ bot->getType() == UNIT_TYPE::WORKER ? 1 : 0, bot->getType() == UNIT_TYPE::CART ? 1 : 0 ,path,Archetype::CITIZEN };
+      EnemySquadInfo enemySquadInfo{ bot->getType() == UNIT_TYPE::WORKER ? (unsigned int)1 : (unsigned int)0, bot->getType() == UNIT_TYPE::CART ? (unsigned int)1 : (unsigned int)0 ,path,Archetype::CITIZEN };
 
       // compare with not already assigned bots
       for(const std::unique_ptr<Bot> &bot2 : gameState.bots)
@@ -195,21 +192,17 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
           // We don't look at already assigned bots
           if (std::find(seenIds.begin(), seenIds.end(), bot->getId()) != seenIds.end())
               continue;
+          if (!gameState.ennemyPath.contains(bot2->getId())) continue;
           auto path2 = gameState.ennemyPath.at(bot2->getId());
           // We check of paths are similar -> TODO propagate maps to avoid not registering bots side by side as same squad
-          if (path.getSimilarity(path2, similarityTolerance) >= similarPercentage)
-          {
-              seenIds.push_back(bot2->getId());
-              if (bot->getType() == UNIT_TYPE::WORKER)
-                  enemySquadInfo.botNb++;
-              else
-                  enemySquadInfo.cartNb++;
+          if (path.getSimilarity(path2, params::similarityTolerance) >= params::similarPercentage) {
+            seenIds.push_back(bot2->getId());
+            if (bot->getType() == UNIT_TYPE::WORKER)
+                enemySquadInfo.botNb++;
+            else
+                enemySquadInfo.cartNb++;
           }
       }
-
-      constexpr float coverageNeeded = 50.f;
-      constexpr int pathLength = 60;
-      constexpr int pathStep = 5;
 
       // guess the squad's current objective
       // TODO propagate path
@@ -219,7 +212,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       for_each(cityClusters[1].begin(), cityClusters[1].end(), [&enemyCities](CityCluster cc) {enemyCities.addTemplateAtIndex(enemyCities.getIndex(cc.center_x, cc.center_y),clusterTemplate); });
       
       // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
-      if (path.covers(gameState.resourcesInfluence, coverageNeeded) && path.covers(enemyCities, coverageNeeded)) 
+      if (path.covers(gameState.resourcesInfluence, params::resourceCoverageNeeded) && path.covers(enemyCities, params::cityCoverageNeeded)) 
       {
           enemySquadInfo.mission = Archetype::FARMER; // Or CITIZEN, really
           InfluenceMap startCheck{ path };
@@ -244,7 +237,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         // we seek if a city is targeted
         for (CityCluster cc : cityClusters[0])
         {
-            if (path.approachesPoint(cc.center_x, cc.center_y, pathLength, pathStep))
+            if (path.approachesPoint(cc.center_x, cc.center_y, params::ennemyPathingTurn, params::pathStep))
             {
                 movingTowardsAllyCity = true;
                 targetedCity = cc;
@@ -294,13 +287,15 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     const std::vector<CityCluster> &enemyCities = clusters[Player::ENEMY];
 
     //First citizen
-    squadRequirements.emplace_back(1,0,0,10,10,Archetype::CITIZEN);
+    squadRequirements.emplace_back(1,0,0,Archetype::CITIZEN);
     availableBots--;
 
     //Sustain
     for(size_t i = 0; i < allyCities.size() && availableBots > 0; i++) {
         auto &cc = allyCities[i];
-        squadRequirements.emplace_back(1,0,1,(int)cc.center_x, (int)cc.center_y, Archetype::FARMER);
+        SquadRequirement sr{ 1,0,1,Archetype::FARMER };
+        sr.dest_x = cc.center_x; sr.dest_y = cc.center_y;
+        squadRequirements.emplace_back(sr);
         availableBots--;
     }
 
@@ -316,19 +311,34 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     //Retaliation
     while ((availableBots > 0 || availableCarts > 0) && !info.empty()) {
         const EnemySquadInfo &enemySquad = info.back();
+        SquadRequirement sr{ 0,0,0,SETTLER };
         switch (enemySquad.mission) {
         case ROADMAKER:
-            squadRequirements.emplace_back(1,0,priorities[ROADMAKER],enemySquad.pos_x,enemySquad.pos_y,TROUBLEMAKER);
+            sr.botNb = 1;
+            sr.cartNb = 0;
+            sr.priority = priorities[ROADMAKER];
+            sr.mission = TROUBLEMAKER;
+            sr.setDestination(enemySquad.path.getRandomValuedPoint());
+            squadRequirements.emplace_back(sr);
             priorities.emplace(ROADMAKER, priorities[ROADMAKER]+1);
             availableBots--;
             break; //ROADMAKER blocked by TROUBLEMAKER
         case SETTLER:
-            squadRequirements.emplace_back(1,0,priorities[SETTLER],enemySquad.pos_x,enemySquad.pos_y,SETTLER);
+            sr.botNb = 1;
+            sr.cartNb = 0;
+            sr.priority = priorities[SETTLER];
+            sr.mission = SETTLER;
+            // TODO define destination in createSquads to use bots directly (can't get best location without base position
+            squadRequirements.emplace_back(sr);
             priorities.emplace(SETTLER, priorities[SETTLER]+1);
             availableBots--;
             break; //SETTLER blocked by SETTLER : don't go in their direction
         case KILLER:
-            squadRequirements.emplace_back(1,0,priorities[SETTLER],enemySquad.pos_x,enemySquad.pos_y,SETTLER);
+            sr.botNb = 1;
+            sr.cartNb = 0;
+            sr.priority = priorities[SETTLER];
+            sr.mission = SETTLER;
+            squadRequirements.emplace_back(sr);
             priorities.emplace(SETTLER, priorities[SETTLER]+1);
             availableBots--;
             break; //KILLER blocked by SETTLER : get out of the city !
@@ -342,11 +352,13 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
 
     //Self-organization
     while (availableBots > 0 || availableCarts > 0) {
-        squadRequirements.emplace_back(static_cast<size_t>(std::min(availableBots, 3)),static_cast<size_t>(std::min(availableCarts, 1)),selfPriority,0,0,FARMER);
+        SquadRequirement srFarmer{ static_cast<size_t>(std::min(availableBots, 3)),static_cast<size_t>(std::min(availableCarts, 1)),selfPriority,FARMER };
+        squadRequirements.emplace_back(srFarmer);
         availableBots -= std::min(availableBots, 3);
         availableCarts--;
         selfPriority++;
-        squadRequirements.emplace_back(static_cast<size_t>(std::min(availableBots, 1)),0,selfPriority,0,0,CITIZEN);
+        SquadRequirement srCitizen{ static_cast<size_t>(std::min(availableBots, 1)),0,selfPriority,CITIZEN };
+        squadRequirements.emplace_back(srCitizen);
         availableBots -= std::min(availableBots, 3);
         availableCarts--;
     }
@@ -369,9 +381,9 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
           if (bot->getTeam() != Player::ALLY || (bot->getType() == UNIT_TYPE::CITY) || std::ranges::find(botsAssigned, bot.get()) != botsAssigned.end())
               continue;
           if (bestBots.size() < sr.botNb) {
-              bestBots.emplace_back(bot.get(), (size_t)(std::abs(sr.dest_x - bot->getX()) + std::abs(sr.dest_y - bot->getY())));
+              bestBots.emplace_back(bot.get(), (size_t)(std::abs((int)sr.dest_x - bot->getX()) + std::abs((int)sr.dest_y - bot->getY())));
           } else {
-              size_t dist = std::abs(sr.dest_x - bot->getX()) + std::abs(sr.dest_y - bot->getY());
+              size_t dist = std::abs((int)sr.dest_x - bot->getX()) + std::abs((int)sr.dest_y - bot->getY());
               size_t scoreDist = bestBots[0].second;
               size_t index = 0;
               for (size_t i = 1; i < sr.botNb; i++) {
