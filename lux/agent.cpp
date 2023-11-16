@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "BehaviorTreeNodes.h"
+#include "IAParams.h"
 
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_WORKER = std::make_shared<BasicBehavior>(nodes::behaviorWorker());
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_CITY = std::make_shared<BasicBehavior>(nodes::behaviorCity());
@@ -83,9 +84,10 @@ namespace kit
 
                 if (getPlayer(team) == Player::ENEMY) {
                   if (newState.ennemyPath.contains(unitid))
-                    newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
-                  else
+                    newState.ennemyPath[unitid].addMap(newState.ennemyPath[unitid], -1.0f/params::ennemyPathingTurn);
+                  else 
                     newState.ennemyPath.insert({ unitid, InfluenceMap{ m_mapWidth, m_mapHeight } });
+                  newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
                 }
 
                 std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
