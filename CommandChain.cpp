@@ -164,48 +164,110 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       std::erase_if(enemyClusters, [](auto &cluster) { return cluster.cityTileCount < 3; });
     }
 
+    std::vector<std::string> seenIds{}; 
+
+    // TODO add to IAParams
+    constexpr float similarPercentage = 80.f;
+    constexpr float similarityTolerance = 3.f;
+
     for(const std::unique_ptr<Bot> &bot : gameState.bots) {
+      // We don't look at enemies nor cities
       if (bot->getType() == UNIT_TYPE::CITY || bot->getTeam() != Player::ENEMY)
+        continue;
+
+      // We don't look at already assigned bots
+      if (std::find(seenIds.begin(), seenIds.end(), bot->getId()) != seenIds.end())
         continue;
 
       auto distanceToCluster = [&](const CityCluster &cluster) { return std::abs(cluster.center_x - (float)bot->getX()) + std::abs(cluster.center_y - (float)bot->getY()); };
 
-      // poll stats about the bot
-      float distanceToAllyCity = cityClusters[Player::ALLY].empty() ? std::numeric_limits<float>::max() :
-        distanceToCluster(*std::ranges::min_element(cityClusters[Player::ALLY], std::less{}, distanceToCluster));
-      float distanceToEnemyCity = cityClusters[Player::ENEMY].empty() ? std::numeric_limits<float>::max() :
-        distanceToCluster(*std::ranges::min_element(cityClusters[Player::ENEMY], std::less{}, distanceToCluster));
-      int distanceToResources = getDistanceToClosestResource(bot->getX(), bot->getY(), gameState.map);
+      // get bot path
+      auto path = gameState.ennemyPath.at(bot->getId());
 
-      // guess the bot's current objective
-      Archetype botMission;
-      if (distanceToResources < 5 && distanceToEnemyCity < 5)
-        botMission = Archetype::CITIZEN;
-      else if (distanceToEnemyCity < 5)
-        botMission = Archetype::FARMER;
-      else if (distanceToAllyCity < 5)
-        botMission = Archetype::TROUBLEMAKER;
-      else if (bot->getType() == UNIT_TYPE::CART)
-        botMission = Archetype::ROADMAKER;
-      else
-        // it is quite hard to differenciate settlers and trouble makers when they come close to
-        // resource clusters that we already captured, by default they'll be considered settlers
-        botMission = Archetype::SETTLER;
+      EnemySquadInfo enemySquadInfo{ bot->getType() == UNIT_TYPE::WORKER ? 1 : 0, bot->getType() == UNIT_TYPE::CART ? 1 : 0 ,path,Archetype::CITIZEN };
 
-      // find the nearest enemy squad with the same objective
-      auto distanceToSquad = [&](const EnemySquadInfo &squad) { return squad.mission == botMission 
-        ? std::abs(squad.pos_x - bot->getX()) + std::abs(squad.pos_y - bot->getY()) : std::numeric_limits<int>::max(); };
-      auto nearestSimilarEnemySquad = std::ranges::min_element(enemySquads, std::less{}, distanceToSquad);
-      
-      // assign the bot to that squad, or create a new squad for them
-      int additionalWorkerCount = bot->getType() == UNIT_TYPE::WORKER ? 1 : 0;
-      int additionalCartCount = bot->getType() == UNIT_TYPE::CART ? 1 : 0;
-      if(nearestSimilarEnemySquad == enemySquads.end() || distanceToSquad(*nearestSimilarEnemySquad) > maxSquadSpan) {
-        enemySquads.emplace_back(additionalWorkerCount, additionalCartCount, bot->getX(), bot->getY(), botMission);
-      } else {
-        nearestSimilarEnemySquad->botNb += additionalWorkerCount;
-        nearestSimilarEnemySquad->cartNb += additionalCartCount;
+      // compare with not already assigned bots
+      for(const std::unique_ptr<Bot> &bot2 : gameState.bots)
+      {
+          // We don't look at enemies nor cities
+          if (bot->getType() == UNIT_TYPE::CITY || bot->getTeam() != Player::ENEMY)
+              continue;
+          // We don't look at already assigned bots
+          if (std::find(seenIds.begin(), seenIds.end(), bot->getId()) != seenIds.end())
+              continue;
+          auto path2 = gameState.ennemyPath.at(bot2->getId());
+          // We check of paths are similar -> TODO propagate maps to avoid not registering bots side by side as same squad
+          if (path.getSimilarity(path2, similarityTolerance) >= similarPercentage)
+          {
+              seenIds.push_back(bot2->getId());
+              if (bot->getType() == UNIT_TYPE::WORKER)
+                  enemySquadInfo.botNb++;
+              else
+                  enemySquadInfo.cartNb++;
+          }
       }
+
+      constexpr float coverageNeeded = 50.f;
+      constexpr int pathLength = 60;
+      constexpr int pathStep = 5;
+
+      // guess the squad's current objective
+      // TODO propagate path
+      // enemyCities is an InfluenceMap created to facilitate operations with path
+      InfluenceMap enemyCities{gameState.citiesInfluence};
+      enemyCities.clear();
+      for_each(cityClusters[1].begin(), cityClusters[1].end(), [&enemyCities](CityCluster cc) {enemyCities.addTemplateAtIndex(enemyCities.getIndex(cc.center_x, cc.center_y),clusterTemplate); });
+      
+      // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
+      if (path.covers(gameState.resourcesInfluence, coverageNeeded) && path.covers(enemyCities, coverageNeeded)) 
+      {
+          enemySquadInfo.mission = Archetype::FARMER; // Or CITIZEN, really
+          InfluenceMap startCheck{ path };
+          startCheck.multiplyMap(enemyCities);
+          // start is the enemy city
+          auto [start_x, start_y] = startCheck.getCoord(startCheck.getHighestPoint());
+          enemySquadInfo.start_x = start_x;
+          enemySquadInfo.start_y = start_y;
+          InfluenceMap endCheck{ path };
+          endCheck.multiplyMap(gameState.resourcesInfluence);
+          // end is the resource point
+          auto [end_x, end_y] = endCheck.getCoord(endCheck.getHighestPoint());
+          enemySquadInfo.dest_x = end_x;
+          enemySquadInfo.dest_y = end_y;
+      }
+      else // if we see a bot approaching one of our cities in "kind of a straight line" (depending on pathStep), he's hostile :
+          // if they are many, they probably want to kill a city and/or units => KILLER
+          // if they are less, they probably just want to block a path or something => TROUBLEMAKER
+      {
+        bool movingTowardsAllyCity = false;
+        CityCluster targetedCity{};
+        // we seek if a city is targeted
+        for (CityCluster cc : cityClusters[0])
+        {
+            if (path.approachesPoint(cc.center_x, cc.center_y, pathLength, pathStep))
+            {
+                movingTowardsAllyCity = true;
+                targetedCity = cc;
+                break;
+            }
+        }
+        if (movingTowardsAllyCity) {
+            if (enemySquadInfo.botNb + enemySquadInfo.cartNb >= 3)
+                enemySquadInfo.mission = Archetype::KILLER;
+            else
+                enemySquadInfo.mission = Archetype::TROUBLEMAKER;
+            enemySquadInfo.dest_x = targetedCity.center_x;
+            enemySquadInfo.dest_y = targetedCity.center_y;
+
+        } else 
+            //TODO more than this, please : especially on settler's info (destination prediction needed)
+            if (enemySquadInfo.botNb == 0 && enemySquadInfo.cartNb != 0)
+                enemySquadInfo.mission = Archetype::ROADMAKER;
+            else
+                enemySquadInfo.mission = Archetype::SETTLER;
+      }
+
+      enemySquads.push_back(enemySquadInfo);
     }
 
     return enemySquads;

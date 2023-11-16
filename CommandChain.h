@@ -49,8 +49,10 @@ struct SquadRequirement
 	size_t botNb;
 	size_t cartNb;
 	size_t priority;
-	int dest_x;
-	int dest_y;
+	unsigned int start_x;
+	unsigned int start_y;
+	unsigned int dest_x;
+	unsigned int dest_y;
 	Archetype mission;
 	SquadRequirement(size_t bNb, size_t cNb, size_t p, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), priority(p), dest_x(x), dest_y(y), mission(order){}
 };
@@ -64,11 +66,14 @@ struct CityCluster {
 struct EnemySquadInfo
 {
 	Archetype mission;
-	int pos_x;
-	int pos_y;
+	InfluenceMap path;
+	unsigned int start_x;
+	unsigned int start_y;
+	unsigned int dest_x;
+	unsigned int dest_y;
 	size_t botNb;
 	size_t cartNb;
-	EnemySquadInfo(size_t bNb, size_t cNb, int x, int y, Archetype order) : botNb(bNb), cartNb(cNb), pos_x(x), pos_y(y), mission(order) {}
+	EnemySquadInfo(size_t bNb, size_t cNb, InfluenceMap path, Archetype order) : botNb(bNb), cartNb(cNb), path(path), mission(order) {}
 };
 
 class Strategy

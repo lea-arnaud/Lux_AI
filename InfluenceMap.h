@@ -141,6 +141,88 @@ public:
     jsonStr += "]\n}";
     return jsonStr;
   }
+
+  // Use to compare maps of similar size
+  float getSimilarity(InfluenceMap map2, float similarityTolerance = 1.f)
+  {
+      if (getWidth() != map2.getWidth() || getHeight() != map2.getHeight())
+          throw 1; // I don't know how to make exceptions T-T
+
+      float similarity = 0;
+      for (int i = 0; i < getSize(); i++)
+      {
+          similarity += std::max(0.f, 1 - std::powf(std::abs(m_map[i] - map2.m_map[i]), similarityTolerance));
+      }
+      return similarity * 100.f / getSize();
+  }
+
+  // Useful only for paths
+  std::pair<tileindex_t, tileindex_t> getStartAndEndOfPath()
+  {
+      tileindex_t start = 0;
+      float sValue = 2;
+      tileindex_t end = 0;
+      float eValue = 0;
+
+      for (int i = 0; i < getSize(); i++)
+      {
+          if (m_map[i] > eValue)
+          {
+              end = i;
+              eValue = m_map[i];
+          }
+          if (m_map[i] < sValue)
+          {
+              start = i;
+              sValue = m_map[i];
+          }
+      }
+
+      return std::pair<tileindex_t, tileindex_t>(start, end);
+  }
+
+  bool covers(InfluenceMap mapToCover, float coverageNeeded)
+  {
+      float total = 0;
+      float covered = 0;
+      for (int i = 0; i < getSize(); i++)
+      {
+          if (mapToCover.m_map[i] > 0)
+          {
+              total++;
+              if (m_map[i] > 0)
+                  covered++;
+          }
+      }
+      return covered/total*100.f > coverageNeeded;
+  }
+
+  bool approachesPoint(int tile_x, int tile_y, int length, int step)
+  {
+      //we collect the points corresponding to each turn - i * step, for i in [|0, length/step|]
+      std::vector<std::pair<int, float>> distances{};
+      //we seek in the map
+      for (int x = 0; x < getWidth(); x++)
+      {
+          for (int y = 0; y < getHeight(); y++)
+          {
+              //we seek the value
+              for (int j = 0; j < length; j += step) {
+                  //this should be verified for one tile only, so we're gonna break once it is verified
+                  if (m_map[x * getHeight() + y] <= j / length && m_map[x * getHeight() + y] >(j-1)/length) {
+                      distances.push_back(std::pair<int, float>(j, std::sqrt((tile_x - x) * (tile_x - x) + (tile_y - y) * (tile_y - y))));
+                      break;
+                  }
+              }
+          }
+      }
+      std::sort(distances.begin(), distances.end());//[](std::pair<int, float> d1, std::pair<int, float> d2) -> bool { return d1.first < d2.first; });
+      for (int i = 0; i < distances.size() - 1; i++)
+      {
+          if (distances[i].second > distances[i+1].second) return false;
+      }
+      return true;
+  }
 };
 
 // TODO have influence templates in a separate namespace
