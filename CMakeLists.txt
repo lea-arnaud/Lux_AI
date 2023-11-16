@@ -72,6 +72,7 @@ SET( AIBOT_SRC
 	TurnOrder.cpp
 	InfluenceMap.cpp
 	Benchmarking.cpp
+	IAParams.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")
