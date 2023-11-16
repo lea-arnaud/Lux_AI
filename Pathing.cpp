@@ -33,34 +33,37 @@ tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameSta
   const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
 
   const Map *map = &gameState->map;
+  size_t currentResearchPoints = gameState->playerResearchPoints[Player::ALLY];
 
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
-  for (tileindex_t i = 0; i < map->getMapSize(); i++)
-  {
+  for (tileindex_t i = 0; i < map->getMapSize(); i++) {
     if(map->tileAt(i).getType() == TileType::ALLY_CITY)
       continue;
     std::pair<int, int> coords = map->getTilePosition(i);
     size_t neighborResources = 0;
     std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
-    for (tileindex_t j : neighbors)
-    {
-      if (map->tileAt(j).getType() == TileType::RESOURCE)
-      {
-        switch (map->tileAt(j).getResourceType())
-        {
-          // FIX consider research points
-        case kit::ResourceType::wood: neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_WOOD, map->tileAt(j).getResourceAmount())); break;
-        case kit::ResourceType::coal: neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_COAL, map->tileAt(j).getResourceAmount())); break;
-        case kit::ResourceType::uranium: neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_URANIUM, map->tileAt(j).getResourceAmount())); break;
+    for (tileindex_t j : neighbors) {
+      if (map->tileAt(j).getType() == TileType::RESOURCE) {
+        switch (map->tileAt(j).getResourceType()) {
+        case kit::ResourceType::wood:
+          neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_WOOD,    map->tileAt(j).getResourceAmount()));
+          break;
+        case kit::ResourceType::coal:
+          if(currentResearchPoints > game_rules::MIN_RESEARCH_COAL)
+            neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_COAL,    map->tileAt(j).getResourceAmount()));
+          break;
+        case kit::ResourceType::uranium:
+          if(currentResearchPoints > game_rules::MIN_RESEARCH_URANIUM)
+            neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_URANIUM, map->tileAt(j).getResourceAmount()));
+          break;
         }
       }
     }
     float tileScore = 
       RESOURCE_NB_WEIGHT * neighborResources +
       distanceWeight * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
-    if (bestTileScore < tileScore)
-    {
+    if (bestTileScore < tileScore) {
       bestTile = i;
       bestTileScore = tileScore;
     }

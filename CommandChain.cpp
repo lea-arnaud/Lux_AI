@@ -109,10 +109,26 @@ std::vector<TurnOrder> Commander::getTurnOrders()
 
 bool Commander::shouldUpdateSquads(const GameStateDiff &diff, const std::vector<EnemySquadInfo> &newEnemyStance)
 {
+  // update squads if...
+  // a friendly bot died
   if (std::ranges::any_of(diff.deadBots, [](auto &deadBot) { return deadBot->getTeam() == Player::ALLY; }))
     return true;
+  // a new friendly bot was created
   if (std::ranges::any_of(diff.newBots, [](auto &newBot) { return newBot->getTeam() == Player::ALLY; }))
     return true;
+  // a squad cannot fullfill its objective
+  if (std::ranges::any_of(m_squads, [&](auto &squad) -> bool {
+    switch(squad.getArchetype()) {
+    case Archetype::FARMER:  return m_gameState->map.tileAt(squad.getTargetTile()).getType() != TileType::ALLY_CITY;
+    case Archetype::SETTLER: return m_gameState->map.tileAt(squad.getTargetTile()).getType() != TileType::EMPTY;
+    case Archetype::CITIZEN: return m_gameState->map.tileAt(squad.getTargetTile()).getType() != TileType::EMPTY;
+    default: break;
+    }
+    return false;
+  }))
+    return true;
+  
+  // otherwise don't update squads
   return false;
 }
 
@@ -156,8 +172,6 @@ std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(co
 
 std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 {
-    constexpr int maxSquadSpan = 6;
-
     std::vector<EnemySquadInfo> enemySquads;
 
     auto cityClusters = getCityClusters(gameState);
@@ -177,8 +191,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       // We don't look at already assigned bots
       if (std::ranges::find(seenIds, bot->getId()) != seenIds.end())
         continue;
-
-      auto distanceToCluster = [&](const CityCluster &cluster) { return std::abs(cluster.center_x - (float)bot->getX()) + std::abs(cluster.center_y - (float)bot->getY()); };
 
       // get bot path
       auto &path = gameState.ennemyPath.at(bot->getId());
@@ -281,13 +293,17 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
         else if (bot->getType() == UNIT_TYPE::WORKER) availableBots++;
     });
 
-    //TODO replace with gameState->cities ??
     const auto &clusters = getCityClusters(gameState);
     const std::vector<CityCluster> &allyCities = clusters[Player::ALLY];
     const std::vector<CityCluster> &enemyCities = clusters[Player::ENEMY];
 
-    // Sustain
-    for(size_t i = 0; i < allyCities.size() && availableBots > 5; i++) {
+    // explore
+    // (after all requirements have been fullfilled, remaining bots will be assigned
+    // to settlers that target a tile near them)
+    availableBots -= std::min(availableBots, 2ull);
+
+    // sustain
+    for(size_t i = 0; i < allyCities.size() && availableBots > 2; i++) {
         auto &cc = allyCities[i];
         SquadRequirement sr{ 1,0,10,Archetype::FARMER, gameState.map.getTileIndex(cc.center_x, cc.center_y) };
         squadRequirements.emplace_back(sr);
@@ -324,13 +340,14 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
         //    sr.priority = priorities[SETTLER];
         //    sr.mission = SETTLER;
         //    // TODO does it realy make sense to create a squad that can go anywhere when we detect an enemy settler?
+        //    // its quite hard to separate the code that dictates what squads to create to the one that actually creates them...
         //    sr.missionTarget = SquadRequirement::ANY_TARGET;
         //    squadRequirements.emplace_back(sr);
         //    priorities.emplace(SETTLER, priorities[SETTLER]+1);
         //    availableBots--;
         //    break; // SETTLER blocked by SETTLER : don't go in their direction
         default:
-            LOG("Cannot react to enemy squad with type " << (int)enemySquad.mission);
+            //LOG("Cannot react to enemy squad with type " << (int)enemySquad.mission);
             break;
         }
         availableBots -= sr.botNb;
@@ -376,8 +393,15 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
         newSquads.emplace_back(std::move(nSquad), sr.mission, sr.missionTarget);
     }
 
+    // assign remaining bots as settlers/farmers
+    size_t lateAssign = 0;
     for(Bot *remainingBot : unassignedBots) {
-        newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, pathing::getBestCityBuildingLocation(remainingBot, gameState));
+        lateAssign++;
+        if(lateAssign % 3 == 0) { // 1/3 farmers
+            newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
+        } else { // 2/3 settlers
+            newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, pathing::getBestCityBuildingLocation(remainingBot, gameState));
+        }
     }
 
     return newSquads;

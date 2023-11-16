@@ -20,7 +20,6 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
 
   std::ranges::for_each(resourcesIndex,
     [&](tileindex_t index) {
-      // TODO: prendre en compte research point et le type de ressource
       float resourceScale = 0.0f;
       Tile tile = map.tileAt(index);
       
