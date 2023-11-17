@@ -178,8 +178,8 @@ std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const 
   static constexpr float DISTANCE_WEIGHT = 1.0f;
 
   InfluenceMap workingMap{ gameState->resourcesInfluence };
-  workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), agentTemplate, DISTANCE_WEIGHT);
-  workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), clusterTemplate, 2.0f);
+  workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), influence_templates::AGENT_PROXIMITY, DISTANCE_WEIGHT);
+  workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY, 2.0f);
 
   return workingMap.getNHighestPoints(n);
 }

@@ -23,15 +23,11 @@ struct TurnOrder
 
   union
   {
-      struct
-      {
-         tileindex_t targetTile;
-
-      };
-      struct
-      {
-          size_t researchVCount;
-      };
+    // only active when order is MOVE
+    struct
+    {
+      tileindex_t targetTile;
+    };
   };
 
   std::string getAsString(const Map &map) const;

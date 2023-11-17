@@ -72,7 +72,6 @@ inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileinde
 			// Get the cost estimate for the neighbor.
 			double tentativeG = currentRecord.g + 1 + (Tile::MAX_ROAD - map.tileAt(neighbourIndex).getRoadAmount());
 
-			// TODO: find a better score to check
 			if (tentativeG <= 25.0f 
 			  && map.tileAt(neighbourIndex).getType() != TileType::ALLY_CITY 
 			  && std::ranges::find(agentsPosition, neighbourIndex) != agentsPosition.end())

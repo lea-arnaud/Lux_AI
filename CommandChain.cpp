@@ -12,6 +12,7 @@
 #include "Types.h"
 #include "lux/annotate.hpp"
 #include "IAParams.h"
+#include "BehaviorTreeNames.h"
 
 
 Commander::Commander()
@@ -25,7 +26,6 @@ void Commander::updateHighLevelObjectives(GameState *state, const GameStateDiff 
     m_gameState = state;
     rearrangeSquads(diff);
 }
-
 
 std::vector<TurnOrder> Commander::getTurnOrders()
 {
@@ -44,16 +44,16 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     std::ranges::transform(m_gameState->bots, std::back_inserter(agentsPositions),
       [this](const auto &bot) { return m_gameState->map.getTileIndex(*bot); });
     std::ranges::for_each(m_gameState->bots,
-      [&](const auto &bot) { if(bot->getType() != UNIT_TYPE::CITY) nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
+      [&](const auto &bot) { if(bot->getType() != UnitType::CITY) nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
 
     // collect agents that can act right now
     std::vector<std::pair<Bot *, Archetype>> availableAgents{};
     for (Squad &squad : m_squads) {
         for (Bot *agent : squad.getAgents()) {
             nbAgents += 1;
-            if (agent->getType() == UNIT_TYPE::WORKER)
+            if (agent->getType() == UnitType::WORKER)
                 nbWorkers += 1;
-            else if (agent->getType() == UNIT_TYPE::CART)
+            else if (agent->getType() == UnitType::CART)
                 nbCarts += 1;
             if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.emplace_back(agent, squad.getArchetype());
@@ -61,7 +61,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     }
 
     for (auto &city : m_gameState->bots) {
-        if (city->getType() == UNIT_TYPE::CITY && city->getTeam() == Player::ALLY) {
+        if (city->getType() == UnitType::CITY && city->getTeam() == Player::ALLY) {
             nbCities++;
             if (city->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
                 availableAgents.emplace_back(city.get(), Archetype::CITIZEN);
@@ -145,29 +145,42 @@ void Commander::rearrangeSquads(const GameStateDiff &diff)
 
 std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(const GameState &gameState)
 {
+    struct RawCityCluster {
+      float centerX;
+      float centerY;
+      size_t cityTileCount;
+    };
+
     constexpr float maxClusterRadius = 5.f;
-    std::array<std::vector<CityCluster>, Player::COUNT> clusters;
+    std::array<std::vector<RawCityCluster>, Player::COUNT> clusters;
 
     for(const std::unique_ptr<Bot> &bot : gameState.bots) {
-      if (bot->getType() != UNIT_TYPE::CITY)
+      if (bot->getType() != UnitType::CITY)
         continue;
       const Bot &cityTile = *bot;
       auto &botFriendlyClusters = clusters[cityTile.getTeam()];
 
-      auto distanceToCluster = [&](CityCluster cluster) { return std::abs(cluster.center_x - (float)cityTile.getX()) + std::abs(cluster.center_y - (float)cityTile.getY()); };
+      auto distanceToCluster = [&](RawCityCluster cluster) { return std::abs(cluster.centerX - (float)cityTile.getX()) + std::abs(cluster.centerY - (float)cityTile.getY()); };
       auto nearestCluster = std::ranges::min_element(botFriendlyClusters, std::less{}, distanceToCluster);
 
       if(nearestCluster == botFriendlyClusters.end() || distanceToCluster(*nearestCluster) > maxClusterRadius) {
         botFriendlyClusters.emplace_back((float)cityTile.getX(), (float)cityTile.getY(), 1);
       } else {
         auto &c = *nearestCluster;
-        c.center_x = (c.center_x * (float)c.cityTileCount + (float)cityTile.getX()) / ((float)c.cityTileCount + 1);
-        c.center_x = (c.center_y * (float)c.cityTileCount + (float)cityTile.getY()) / ((float)c.cityTileCount + 1);
+        c.centerX = (c.centerX * (float)c.cityTileCount + (float)cityTile.getX()) / ((float)c.cityTileCount + 1);
+        c.centerY = (c.centerY * (float)c.cityTileCount + (float)cityTile.getY()) / ((float)c.cityTileCount + 1);
         c.cityTileCount++;
       }
     }
 
-    return clusters;
+    std::array<std::vector<CityCluster>, Player::COUNT> finalClusters;
+    for(size_t i = 0; i < Player::COUNT; i++) {
+      finalClusters[i].reserve(clusters[i].size());
+      std::ranges::transform(clusters[i], std::back_inserter(finalClusters[i]), [](auto &rawCluster) {
+        return CityCluster{ static_cast<int>(rawCluster.centerX), static_cast<int>(rawCluster.centerY), rawCluster.cityTileCount };
+      });
+    }
+    return finalClusters;
 }
 
 std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
@@ -185,7 +198,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 
     for(const std::unique_ptr<Bot> &bot : gameState.bots) {
       // We don't look at enemies nor cities
-      if (bot->getType() == UNIT_TYPE::CITY || bot->getTeam() != Player::ENEMY)
+      if (bot->getType() == UnitType::CITY || bot->getTeam() != Player::ENEMY)
         continue;
 
       // We don't look at already assigned bots
@@ -195,23 +208,23 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       // get bot path
       auto &path = gameState.ennemyPath.at(bot->getId());
 
-      EnemySquadInfo enemySquadInfo{ bot->getType() == UNIT_TYPE::WORKER ? (unsigned int)1 : (unsigned int)0, bot->getType() == UNIT_TYPE::CART ? (unsigned int)1 : (unsigned int)0 ,path,Archetype::CITIZEN };
+      EnemySquadInfo enemySquadInfo{ bot->getType() == UnitType::WORKER ? (unsigned int)1 : (unsigned int)0, bot->getType() == UnitType::CART ? (unsigned int)1 : (unsigned int)0 ,path,Archetype::CITIZEN };
 
       // compare with not already assigned bots
       for(const std::unique_ptr<Bot> &bot2 : gameState.bots)
       {
           // We don't look at enemies nor cities
-          if (bot->getType() == UNIT_TYPE::CITY || bot->getTeam() != Player::ENEMY)
+          if (bot->getType() == UnitType::CITY || bot->getTeam() != Player::ENEMY)
               continue;
           // We don't look at already assigned bots
-          if (std::ranges::find(seenIds, bot->getId()) != seenIds.end())
+          if (std::ranges::find(seenIds, bot2->getId()) != seenIds.end())
               continue;
           if (!gameState.ennemyPath.contains(bot2->getId())) continue;
           auto &path2 = gameState.ennemyPath.at(bot2->getId());
           // We check of paths are similar -> TODO propagate maps to avoid not registering bots side by side as same squad
           if (path.getSimilarity(path2, params::similarityTolerance) >= params::similarPercentage) {
             seenIds.push_back(bot2->getId());
-            if (bot->getType() == UNIT_TYPE::WORKER)
+            if (bot->getType() == UnitType::WORKER)
                 enemySquadInfo.botNb++;
             else
                 enemySquadInfo.cartNb++;
@@ -223,7 +236,9 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       // enemyCities is an InfluenceMap created to facilitate operations with path
       InfluenceMap enemyCities{gameState.citiesInfluence};
       enemyCities.clear();
-      std::ranges::for_each(cityClusters[1], [&enemyCities](CityCluster cc) {enemyCities.addTemplateAtIndex(enemyCities.getIndex(cc.center_x, cc.center_y),clusterTemplate); });
+      std::ranges::for_each(cityClusters[Player::ENEMY], [&enemyCities](CityCluster cc) {
+        enemyCities.addTemplateAtIndex(enemyCities.getIndex(cc.center_x, cc.center_y), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY);
+      });
       
       // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
       if (path.covers(gameState.resourcesInfluence, params::resourceCoverageNeeded) && path.covers(enemyCities, params::cityCoverageNeeded)) 
@@ -289,8 +304,8 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     size_t availableCarts = 0;
     std::ranges::for_each(gameState.bots, [&availableBots, &availableCarts](const std::unique_ptr<Bot> &bot) {
         if (bot->getTeam() != Player::ALLY) return;
-        if (bot->getType() == UNIT_TYPE::CART) availableCarts++;
-        else if (bot->getType() == UNIT_TYPE::WORKER) availableBots++;
+        if (bot->getType() == UnitType::CART) availableCarts++;
+        else if (bot->getType() == UnitType::WORKER) availableBots++;
     });
 
     const auto &clusters = getCityClusters(gameState);
@@ -364,7 +379,7 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
     std::unordered_set<Bot *> unassignedBots;
 
     for(auto &bot : gameState->bots) {
-      if (bot->getTeam() != Player::ALLY || (bot->getType() == UNIT_TYPE::CITY))
+      if (bot->getTeam() != Player::ALLY || (bot->getType() == UnitType::CITY))
         continue;
       unassignedBots.insert(bot.get());
     }
@@ -380,11 +395,11 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
         std::vector<Bot *> nSquad;
         for(size_t remainingWorkers = sr.botNb, remainingCarts = sr.cartNb; (remainingWorkers > 0 || remainingCarts > 0) && !bestBots.empty(); ) {
             Bot *availableBot = bestBots.top().first;
-            if(availableBot->getType() == UNIT_TYPE::CART && remainingCarts > 0) {
+            if(availableBot->getType() == UnitType::CART && remainingCarts > 0) {
                 nSquad.push_back(availableBot);
                 unassignedBots.erase(availableBot);
                 remainingCarts--;
-            } else if(availableBot->getType() == UNIT_TYPE::WORKER && remainingWorkers > 0) {
+            } else if(availableBot->getType() == UnitType::WORKER && remainingWorkers > 0) {
                 nSquad.push_back(availableBot);
                 unassignedBots.erase(availableBot);
                 remainingWorkers--;

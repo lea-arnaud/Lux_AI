@@ -47,6 +47,7 @@ std::shared_ptr<Task> taskCityResearch();
 
 std::shared_ptr<Task> behaviorCity();
 std::shared_ptr<Task> behaviorWorker();
+std::shared_ptr<Task> behaviorCart();
 
 }
 

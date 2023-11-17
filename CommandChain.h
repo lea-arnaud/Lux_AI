@@ -6,7 +6,6 @@
 #include "Bot.h"
 #include "GameState.h"
 #include "TurnOrder.h"
-#include "BehaviorTreeNames.h"
 #include "Types.h"
 
 struct BotObjective
@@ -65,8 +64,8 @@ struct SquadRequirement
 };
 
 struct CityCluster {
-	float center_x;
-	float center_y;
+	int center_x;
+	int center_y;
 	size_t cityTileCount;
 };
 

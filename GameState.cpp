@@ -14,7 +14,7 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
     [&](const Bot *bot) {
       tileindex_t index = map.getTileIndex(bot->getX(), bot->getY());
       if (bot->getTeam() == Player::ALLY)
-        citiesInfluence.addTemplateAtIndex(index, cityTemplate);
+        citiesInfluence.addTemplateAtIndex(index, influence_templates::CITY_ADJENCY);
       citiesInfluence.setValueAtIndex(index, -100.0f);
     });
 
@@ -38,7 +38,7 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
         break;
       }
 
-      resourcesInfluence.addTemplateAtIndex(index, resourceTemplate, resourceScale);
+      resourcesInfluence.addTemplateAtIndex(index, influence_templates::RESOURCE_PROXIMITY, resourceScale);
       citiesInfluence.setValueAtIndex(index, -100.0f);
     });
 }

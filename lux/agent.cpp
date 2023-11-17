@@ -6,6 +6,7 @@
 #include "IAParams.h"
 
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_WORKER = std::make_shared<BasicBehavior>(nodes::behaviorWorker());
+static const std::shared_ptr<BasicBehavior> BEHAVIOR_CART = std::make_shared<BasicBehavior>(nodes::behaviorCart());
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_CITY = std::make_shared<BasicBehavior>(nodes::behaviorCity());
 
 namespace kit
@@ -78,7 +79,7 @@ namespace kit
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
                 } else {
-                  newState.bots.push_back(std::make_unique<Bot>(unitid, (UNIT_TYPE)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, (UnitType)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
                   stateDiff.newBots.push_back(newState.bots.back().get());
                 }
 
@@ -125,7 +126,7 @@ namespace kit
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
                 } else {
-                  newState.bots.push_back(std::make_unique<Bot>(unitid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, UnitType::CITY, getPlayer(team), BEHAVIOR_CITY));
                   stateDiff.newBots.push_back(newState.bots.back().get());
                 }
                 std::unique_ptr<Bot> &updatedAgent = newState.bots.back();

@@ -3,8 +3,6 @@
 
 #include <string>
 
-#include "Log.h"
-
 namespace lux
 {
   using namespace std;

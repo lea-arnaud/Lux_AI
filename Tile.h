@@ -3,7 +3,7 @@
 
 #include "lux/kit.hpp"
 
-enum TileType
+enum class TileType
 {
   EMPTY,
   RESOURCE,

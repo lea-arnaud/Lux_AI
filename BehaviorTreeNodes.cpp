@@ -392,17 +392,17 @@ std::shared_ptr<Task> taskCityCreateWorker()
 // Create a cart if there is less than 1 cart
 std::shared_ptr<Task> taskCityCreateCart()
 {
-    return std::make_shared<Selector>(
-      testHasTeamEnoughCarts(),
-      testHasTeamReachedAgentCapacity(),
-      taskLog("Creating cart", TaskResult::FAILURE),
-      taskPlayAgentTurn([](Blackboard &bb) {
-        const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-        bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
-        bb.updateData(bbn::GLOBAL_WORKERS, bb.getData<int>(bbn::GLOBAL_WORKERS) + 1);
-        return TurnOrder{ TurnOrder::CREATE_CART, bot };
+  return std::make_shared<Selector>(
+    testHasTeamEnoughCarts(),
+    testHasTeamReachedAgentCapacity(),
+    taskLog("Creating cart", TaskResult::FAILURE),
+    taskPlayAgentTurn([](Blackboard &bb) {
+      const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+      bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
+      bb.updateData(bbn::GLOBAL_WORKERS, bb.getData<int>(bbn::GLOBAL_WORKERS) + 1);
+      return TurnOrder{ TurnOrder::CREATE_CART, bot };
     })
-    );
+  );
 }
 
 
@@ -465,19 +465,19 @@ std::shared_ptr<Task> behaviorWorker()
 
 std::shared_ptr<Task> behaviorCart()
 {
-    auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-    taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
-    taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
 
-    return
-        std::make_shared<Alternative>(
-          testIsDawnOrNight(),
-          taskMoveToBestTileAtNight(),
-          std::make_shared<Sequence>(
-              taskPlaySquadProvidedObjective,
-              taskLog("Agent had nothing to do!")
-          )
-        );
+  return
+    std::make_shared<Alternative>(
+      testIsDawnOrNight(),
+      taskMoveToBestTileAtNight(),
+      std::make_shared<Sequence>(
+          taskPlaySquadProvidedObjective,
+          taskLog("Agent had nothing to do!")
+      )
+    );
 }
   
 }
