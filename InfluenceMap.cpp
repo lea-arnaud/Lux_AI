@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-void InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float))
+InfluenceMap& InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float))
 {
   auto [x1, y1] = getCoord(index);
 
@@ -11,56 +11,69 @@ void InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*p
       m_map[index] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
     }
   }
+
+  return *this;
 }
 
-void InfluenceMap::setValueAtIndex(tileindex_t index, float value)
+InfluenceMap& InfluenceMap::setValueAtIndex(tileindex_t index, float value)
 {
   m_map[index] = value;
+  return *this;
 }
 
-void InfluenceMap::addValueAtIndex(tileindex_t index, float value)
+InfluenceMap& InfluenceMap::addValueAtIndex(tileindex_t index, float value)
 {
   m_map[index] += value;
+  return *this;
 }
 
-void InfluenceMap::multiplyValueAtIndex(tileindex_t index, float value)
+InfluenceMap& InfluenceMap::multiplyValueAtIndex(tileindex_t index, float value)
 {
   m_map[index] *= value;
+  return *this;
 }
 
-void InfluenceMap::addMap(const InfluenceMap &influenceMap, float weight)
+InfluenceMap& InfluenceMap::addMap(const InfluenceMap &influenceMap, float weight)
 {
   std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
       [weight](float currentScore, float otherScore) {
     return currentScore + (otherScore * weight);
   });
+
+  return *this;
 }
 
-void InfluenceMap::multiplyMap(const InfluenceMap &influenceMap, float weight)
+InfluenceMap& InfluenceMap::multiplyMap(const InfluenceMap &influenceMap, float weight)
 {
   std::transform(m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
       [weight](float currentScore, float otherScore) {
     return currentScore * (otherScore * weight);
   });
+
+  return *this;
 }
 
-void InfluenceMap::normalize()
+InfluenceMap& InfluenceMap::normalize()
 {
   // TODO: get the min and max in one loop
   float minVal = *std::min_element(m_map.begin(), m_map.end());
   float maxVal = *std::max_element(m_map.begin(), m_map.end());
 
   if (minVal == maxVal)
-    return;
+    return *this;
 
   std::transform(m_map.begin(), m_map.end(), m_map.begin(),
     [minVal, maxVal](float score) { return (score - minVal) / (maxVal - minVal); });
+
+  return *this;
 }
 
-void InfluenceMap::flip()
+InfluenceMap& InfluenceMap::flip()
 {
   std::transform(m_map.begin(), m_map.end(), m_map.begin(),
       [](float score) { return 1.0f - score; });
+
+  return *this;
 }
 
 tileindex_t InfluenceMap::getHighestPoint() const
