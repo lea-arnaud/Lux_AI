@@ -79,7 +79,7 @@ struct EnemySquadInfo
 	unsigned int dest_y;
 	size_t botNb;
 	size_t cartNb;
-	EnemySquadInfo(size_t bNb, size_t cNb, InfluenceMap path, Archetype order) : botNb(bNb), cartNb(cNb), path(path), mission(order) {}
+	EnemySquadInfo(size_t bNb, size_t cNb, InfluenceMap path, Archetype order) : botNb(bNb), cartNb(cNb), path(std::move(path)), mission(order) {}
 	void setStart(unsigned int x, unsigned int y) { start_x = x; start_y = y; }
 	void setStart(std::pair<unsigned int, unsigned int> p) { start_x = p.first; start_y = p.second; }
 	void setDestination(unsigned int x, unsigned int y) { dest_x = x; dest_y = y; }

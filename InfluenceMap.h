@@ -2,11 +2,10 @@
 #define INFLUENCE_MAP_H
 
 #include <array>
-#include <type_traits>
 #include <vector>
-#include <string>
-#include "Types.h"
 #include <random>
+
+#include "Types.h"
 
 template <class T>
 constexpr T absolute(const T &x, std::enable_if_t<std::is_arithmetic_v<T>> * = nullptr)
@@ -59,6 +58,8 @@ public:
   void setSize(int width, int height);
 
   tileindex_t getIndex(int x, int y) const { return x + y * m_width; }
+  float getValue(int x, int y) const { return getValue(getIndex(x, y)); }
+  float getValue(tileindex_t index) const { return m_map[index]; }
   std::pair<int, int> getCoord(tileindex_t index) const { return { index % m_width, index / m_width }; }
   std::pair<int, int> getCenter() const { return { m_width / 2, m_height / 2 }; }
   int getSize() const { return m_width * m_height; }
@@ -136,7 +137,13 @@ void InfluenceMap::multiplyTemplateAtIndex(tileindex_t index, const InfluenceTem
 
 namespace influence_templates
 {
-  
+
+constexpr InfluenceTemplate<3, 3> SHAPE_CROSS{ 2, 2, 1.0f,
+                                       [](float influence, float distance)
+                                       {
+                                         return distance <= 1 ? influence : 0;
+                                       } };
+
 constexpr InfluenceTemplate<9, 9> AGENT_PROXIMITY{ 4, 4, 1.0f,
                                        [](float influence, float distance)
                                        {

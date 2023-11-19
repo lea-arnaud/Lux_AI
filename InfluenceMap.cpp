@@ -2,13 +2,17 @@
 
 #include <algorithm>
 
+#ifdef _DEBUG
+std::mt19937 g_randomEngine{ 0 };
+#else
 std::mt19937 g_randomEngine{ std::random_device{}()};
+#endif
 
 void InfluenceMap::setSize(int width, int height)
 {
   m_width = width;
   m_height = height;
-
+  m_map.clear();
   m_map.resize(width * height, 0.0f);
 }
 

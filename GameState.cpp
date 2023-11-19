@@ -38,7 +38,9 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
         break;
       }
 
-      resourcesInfluence.addTemplateAtIndex(index, influence_templates::RESOURCE_PROXIMITY, resourceScale);
+      if (resourceScale != 0) {
+        resourcesInfluence.addTemplateAtIndex(index, influence_templates::RESOURCE_PROXIMITY, resourceScale);
+      }
       citiesInfluence.setValueAtIndex(index, -100.0f);
     });
 }

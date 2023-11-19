@@ -235,7 +235,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       // TODO propagate path
       // enemyCities is an InfluenceMap created to facilitate operations with path
       InfluenceMap enemyCities{gameState.citiesInfluence};
-      enemyCities.clear();
+      enemyCities.clear(); // TODO create an empty map instead of clearing it instantly
       std::ranges::for_each(cityClusters[Player::ENEMY], [&enemyCities](CityCluster cc) {
         enemyCities.addTemplateAtIndex(enemyCities.getIndex(cc.center_x, cc.center_y), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY);
       });

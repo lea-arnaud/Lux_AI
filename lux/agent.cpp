@@ -30,6 +30,7 @@ namespace kit
         GameState &oldState = m_gameState;
         GameState newState;
         GameStateDiff stateDiff;
+        newState.currentTurn = oldState.currentTurn + 1;
         newState.map.setSize(m_mapWidth, m_mapHeight);
         newState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
         newState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
@@ -63,7 +64,7 @@ namespace kit
             else if (input_identifier == INPUT_CONSTANTS::UNITS)
             {
                 int i = 1;
-                int unittype = std::stoi(updates[i++]);
+                UnitType unitType = (UnitType)std::stoi(updates[i++]);
                 int team = std::stoi(updates[i++]);
                 std::string unitid = updates[i++];
                 int x = std::stoi(updates[i++]);
@@ -79,7 +80,7 @@ namespace kit
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
                 } else {
-                  newState.bots.push_back(std::make_unique<Bot>(unitid, (UnitType)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, unitType, getPlayer(team), unitType == UnitType::CART ? BEHAVIOR_CART : BEHAVIOR_WORKER));
                   stateDiff.newBots.push_back(newState.bots.back().get());
                 }
 
@@ -151,6 +152,7 @@ namespace kit
 
         stateDiff.deadBots = std::move(oldState.bots);
 
+        newState.map.rebuildResourceAdjencies();
         m_gameState = std::move(newState);
         m_gameStateDiff = std::move(stateDiff);
     }

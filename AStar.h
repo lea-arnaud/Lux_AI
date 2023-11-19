@@ -1,22 +1,14 @@
 #ifndef ASTAR_H
 #define ASTAR_H
 
+#include <vector>
+#include <queue>
+
 #include "Map.h"
 #include "lux\kit.hpp"
 #include "Bot.h"
-#include <vector>
-#include <queue>
-#include <algorithm>
 
 enum Category { CLOSED = 0, OPEN, UNVISITED };
-
-using pathflags_t = uint8_t;
-
-namespace PathFlags
-{
-static constexpr pathflags_t NONE = 0;
-static constexpr pathflags_t CAN_MOVE_THROUGH_FRIENDLY_CITIES = 1;
-}
 
 struct AStarNode
 {
@@ -68,7 +60,7 @@ inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileinde
 		if (currentRecord.category == CLOSED) continue;
 
 		// Otherwise get its outgoing connections.
-		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex, pathFlags & PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES)) {
+		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex, pathFlags)) {
 			// Get the cost estimate for the neighbor.
 			double tentativeG = currentRecord.g + 1 + (Tile::MAX_ROAD - map.tileAt(neighbourIndex).getRoadAmount());
 
