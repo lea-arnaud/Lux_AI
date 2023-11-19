@@ -13,6 +13,7 @@
 #include "lux/annotate.hpp"
 #include "IAParams.h"
 #include "BehaviorTreeNames.h"
+#include "Benchmarking.h"
 
 
 Commander::Commander()
@@ -82,6 +83,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
 
     // fill in the orders list through agents behavior trees
     std::ranges::for_each(availableAgents, [&,this](const std::pair<Bot *, Archetype> &agentAndArchetype) {
+        MULTIBENCHMARK_LAPBEGIN(AgentBT);
         auto &[agent, archetype] = agentAndArchetype;
         tileindex_t targetTile = 1;
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
@@ -99,6 +101,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
         agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         agent->getBlackboard().setParentBoard(m_globalBlackboard);
         agent->act();
+        MULTIBENCHMARK_LAPEND(AgentBT);
     });
 
     // not critical, but keeping dandling pointers alive is never a good idea
@@ -134,13 +137,15 @@ bool Commander::shouldUpdateSquads(const GameStateDiff &diff, const std::vector<
 
 void Commander::rearrangeSquads(const GameStateDiff &diff)
 {
-    auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
-    if(m_previousEnemyStance.empty() || shouldUpdateSquads(diff, enemyStance)) {
-      lux::Annotate::sidetext("! Updating squads");
-      auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState);
-      m_squads = currentStrategy.createSquads(stanceToTake, m_gameState);
-      m_previousEnemyStance = std::move(enemyStance);
-    }
+  auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
+  if(m_previousEnemyStance.empty() || shouldUpdateSquads(diff, enemyStance)) {
+    lux::Annotate::sidetext("! Updating squads");
+    auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState);
+    BENCHMARK_BEGIN(createSquads);
+    m_squads = currentStrategy.createSquads(stanceToTake, m_gameState);
+    m_previousEnemyStance = std::move(enemyStance);
+    BENCHMARK_END(createSquads);
+  }
 }
 
 std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(const GameState &gameState)
@@ -395,6 +400,7 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
         std::vector<Bot *> nSquad;
         for(size_t remainingWorkers = sr.botNb, remainingCarts = sr.cartNb; (remainingWorkers > 0 || remainingCarts > 0) && !bestBots.empty(); ) {
             Bot *availableBot = bestBots.top().first;
+            bestBots.pop();
             if(availableBot->getType() == UnitType::CART && remainingCarts > 0) {
                 nSquad.push_back(availableBot);
                 unassignedBots.erase(availableBot);
@@ -412,11 +418,16 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
     size_t lateAssign = 0;
     for(Bot *remainingBot : unassignedBots) {
         lateAssign++;
-        if(lateAssign % 3 == 0) { // 1/3 farmers
-            newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
-        } else { // 2/3 settlers
-            newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, pathing::getBestCityBuildingLocation(remainingBot, gameState));
+        // 1/3 farmers
+        if(lateAssign % 3 == 0) {
+            tileindex_t targetCity = pathing::getBestCityFeedingLocation(remainingBot, gameState);
+            if(targetCity != -1) {
+                newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::FARMER, targetCity);
+                continue;
+            }
         }
+        // 2/3 settlers
+        newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, pathing::getBestCityBuildingLocation(remainingBot, gameState));
     }
 
     return newSquads;

@@ -1,5 +1,6 @@
 #include "BehaviorTreeNodes.h"
 
+#include "Benchmarking.h"
 #include "Pathing.h"
 #include "CommandChain.h"
 #include "lux/annotate.hpp"
@@ -134,7 +135,9 @@ std::shared_ptr<Task> taskMoveTo(
       tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
       auto occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
 
+      MULTIBENCHMARK_LAPBEGIN(Astar);
       std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex, *occupiedTiles, pathFlags(bb));
+      MULTIBENCHMARK_LAPEND(Astar);
 
       if (path.empty()) {
         // TODO relax constraints and find another path

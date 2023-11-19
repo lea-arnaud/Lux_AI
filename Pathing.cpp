@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "Benchmarking.h"
 #include "GameRules.h"
 #include "Log.h"
 #include "InfluenceMap.h"
@@ -76,6 +77,7 @@ tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameSta
 
 tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameState)
 {
+  MULTIBENCHMARK_LAPBEGIN(getBestCityBuildingLocation);
   static constexpr float DISTANCE_WEIGHT = -1.f;
   static constexpr float ADJACENT_CITIES_WEIGHT = +1.f;
 
@@ -102,6 +104,7 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameSta
       bestTileScore = tileScore;
     }
   }
+  MULTIBENCHMARK_LAPEND(getBestCityBuildingLocation);
   return bestTile;
 }
 
@@ -114,6 +117,7 @@ tileindex_t getBestExpansionLocation(const Bot* bot, const GameState *gameState)
 
 tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameState)
 {
+  MULTIBENCHMARK_LAPBEGIN(getBestCityFeedingLocation);
   static constexpr float DISTANCE_WEIGHT = -1.f;
 
   tileindex_t bestTile = -1;
@@ -127,6 +131,7 @@ tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameStat
       bestTileScore = tileScore;
     }
   }
+  MULTIBENCHMARK_LAPEND(getBestCityFeedingLocation);
   return bestTile;
 }
 
