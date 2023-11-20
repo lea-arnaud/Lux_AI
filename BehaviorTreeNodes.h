@@ -18,7 +18,6 @@ namespace nodes
 std::shared_ptr<Task> testIsNight();
 std::shared_ptr<Task> testIsDawnOrNight();
 std::shared_ptr<Task> testIsAgentFullOfResources();
-std::shared_ptr<Task> testHasTeamEnoughAgents();
 std::shared_ptr<Task> testHasTeamEnoughResearchPoint();
 
 // debugging method, prints and returns success
@@ -33,12 +32,13 @@ std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective();
 
 using GoalSupplier = std::function<tileindex_t(Blackboard &)>;
 using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, const GameState *)>;
+using PathFlagsSupplier = std::function<pathflags_t(Blackboard &)>;
 using GoalValidityChecker = std::function<bool(Blackboard &)>;
 using SimpleGoalValidityChecker = std::function<bool(const Bot *, const Map *, tileindex_t)>;
 
-std::shared_ptr<Task> taskMoveTo(GoalSupplier &&goalSupplier, GoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype);
+std::shared_ptr<Task> taskMoveTo(GoalSupplier &&goalSupplier, GoalValidityChecker &&goalValidityChecker, PathFlagsSupplier &&pathFlags, const std::string &pathtype);
 std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype);
-std::shared_ptr<Task> taskFetchResources();
+std::shared_ptr<Task> taskFetchResources(float distanceWeight=-1.f);
 std::shared_ptr<Task> taskBuildCity();
 std::shared_ptr<Task> taskFeedCity();
 
@@ -47,6 +47,7 @@ std::shared_ptr<Task> taskCityResearch();
 
 std::shared_ptr<Task> behaviorCity();
 std::shared_ptr<Task> behaviorWorker();
+std::shared_ptr<Task> behaviorCart();
 
 }
 

@@ -6,7 +6,7 @@
 #include "Types.h"
 #include "BehaviorTree.h"
 
-enum UNIT_TYPE {
+enum class UnitType {
   WORKER = 0,
   CART,
   CITY
@@ -15,7 +15,7 @@ enum UNIT_TYPE {
 class Bot
 {
 public:
-  Bot(const std::string &id, UNIT_TYPE type, player_t team, const std::shared_ptr<BasicBehavior> &behaviorTree)
+  Bot(const std::string &id, UnitType type, player_t team, const std::shared_ptr<BasicBehavior> &behaviorTree)
     : m_id(id)
     , m_type(type)
     , m_team(team)
@@ -27,7 +27,7 @@ public:
   int getX() const { return m_x; }
   int getY() const { return m_y; }
   player_t getTeam() const { return m_team; }
-  UNIT_TYPE getType() const { return m_type; }
+  UnitType getType() const { return m_type; }
   float getCooldown() const { return m_cooldown; }
   int getWoodAmount() const { return m_wood; }
   int getCoalAmount() const { return m_coal; }
@@ -53,7 +53,7 @@ private:
   int         m_x{}, m_y{};
   float       m_cooldown{};
   int         m_wood{}, m_coal{}, m_uranium{};
-  UNIT_TYPE   m_type;
+  UnitType   m_type;
   player_t    m_team;
   std::shared_ptr<Blackboard>    m_blackboard;
   std::shared_ptr<BasicBehavior> m_behaviorTree;

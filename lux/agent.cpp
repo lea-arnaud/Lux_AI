@@ -3,8 +3,11 @@
 #include <algorithm>
 
 #include "BehaviorTreeNodes.h"
+#include "Benchmarking.h"
+#include "IAParams.h"
 
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_WORKER = std::make_shared<BasicBehavior>(nodes::behaviorWorker());
+static const std::shared_ptr<BasicBehavior> BEHAVIOR_CART = std::make_shared<BasicBehavior>(nodes::behaviorCart());
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_CITY = std::make_shared<BasicBehavior>(nodes::behaviorCity());
 
 namespace kit
@@ -28,6 +31,7 @@ namespace kit
         GameState &oldState = m_gameState;
         GameState newState;
         GameStateDiff stateDiff;
+        newState.currentTurn = oldState.currentTurn + 1;
         newState.map.setSize(m_mapWidth, m_mapHeight);
         newState.citiesInfluence.setSize(m_mapWidth, m_mapHeight);
         newState.resourcesInfluence.setSize(m_mapWidth, m_mapHeight);
@@ -61,7 +65,7 @@ namespace kit
             else if (input_identifier == INPUT_CONSTANTS::UNITS)
             {
                 int i = 1;
-                int unittype = std::stoi(updates[i++]);
+                UnitType unitType = (UnitType)std::stoi(updates[i++]);
                 int team = std::stoi(updates[i++]);
                 std::string unitid = updates[i++];
                 int x = std::stoi(updates[i++]);
@@ -77,15 +81,16 @@ namespace kit
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
                 } else {
-                  newState.bots.push_back(std::make_unique<Bot>(unitid, (UNIT_TYPE)unittype, getPlayer(team), BEHAVIOR_WORKER)); // TODO add cart behavior
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, unitType, getPlayer(team), unitType == UnitType::CART ? BEHAVIOR_CART : BEHAVIOR_WORKER));
                   stateDiff.newBots.push_back(newState.bots.back().get());
                 }
 
                 if (getPlayer(team) == Player::ENEMY) {
                   if (newState.ennemyPath.contains(unitid))
-                    newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
-                  else
+                    newState.ennemyPath[unitid].addMap(newState.ennemyPath[unitid], -1.0f/params::ennemyPathingTurn);
+                  else 
                     newState.ennemyPath.insert({ unitid, InfluenceMap{ m_mapWidth, m_mapHeight } });
+                  newState.ennemyPath[unitid].addValueAtIndex(newState.map.getTileIndex(x, y), 1.0f);
                 }
 
                 std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
@@ -123,7 +128,7 @@ namespace kit
                   newState.bots.emplace_back(std::move(*existingAgent));
                   oldState.bots.erase(existingAgent);
                 } else {
-                  newState.bots.push_back(std::make_unique<Bot>(unitid, UNIT_TYPE::CITY, getPlayer(team), BEHAVIOR_CITY));
+                  newState.bots.push_back(std::make_unique<Bot>(unitid, UnitType::CITY, getPlayer(team), BEHAVIOR_CITY));
                   stateDiff.newBots.push_back(newState.bots.back().get());
                 }
                 std::unique_ptr<Bot> &updatedAgent = newState.bots.back();
@@ -148,6 +153,7 @@ namespace kit
 
         stateDiff.deadBots = std::move(oldState.bots);
 
+        newState.map.rebuildResourceAdjencies();
         m_gameState = std::move(newState);
         m_gameStateDiff = std::move(stateDiff);
     }
@@ -157,10 +163,16 @@ namespace kit
         // sense
         // (already done by ExtractGameState)
         // think
+        BENCHMARK_BEGIN(computeInfluence);
         m_gameState.computeInfluence(m_gameStateDiff);
+        BENCHMARK_END(computeInfluence);
+        BENCHMARK_BEGIN(updateHighLevelObjectives);
         m_commander.updateHighLevelObjectives(&m_gameState, m_gameStateDiff);
+        BENCHMARK_END(updateHighLevelObjectives);
         // act
+        BENCHMARK_BEGIN(getTurnOrders);
         std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders();
+        BENCHMARK_END(getTurnOrders);
         auto ordersEnd = std::ranges::remove_if(commanderOrders, [](TurnOrder &t) { return t.type == TurnOrder::DO_NOTHING; }).begin();
         std::transform(commanderOrders.begin(), ordersEnd, std::back_inserter(orders), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });
     }

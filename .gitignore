@@ -42,3 +42,5 @@ replays/
 jobfiles.txt
 *.submit
 *.json
+benchmark0.txt
+benchmark1.txt

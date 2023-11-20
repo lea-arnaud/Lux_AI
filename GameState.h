@@ -17,6 +17,8 @@ struct GameStateDiff
 
 struct GameState
 {
+  size_t currentTurn = 0;
+
   Map map;
   std::vector<std::unique_ptr<City>> cities;
   std::vector<std::unique_ptr<Bot>> bots;

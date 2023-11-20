@@ -1,5 +1,6 @@
 #include "Map.h"
 
+#include "AStar.h"
 #include "Log.h"
 
 static constexpr std::array NEIGHBOUR_DIRECTIONS = { kit::DIRECTIONS::NORTH, kit::DIRECTIONS::EAST, kit::DIRECTIONS::SOUTH, kit::DIRECTIONS::WEST };
@@ -26,7 +27,7 @@ tileindex_t Map::getTileNeighbour(tileindex_t source, kit::DIRECTIONS direction)
     }
 }
 
-std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source, bool canMoveOverCity) const
+std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source, pathflags_t flags) const
 {
   std::vector<tileindex_t> neighbours{};
 
@@ -35,8 +36,9 @@ std::vector<tileindex_t> Map::getValidNeighbours(tileindex_t source, bool canMov
 
     tileindex_t neighbourIndex = getTileNeighbour(source, direction);
     const Tile &tile = tileAt(neighbourIndex);
-    if (!canMoveOverCity && tile.getType() == TileType::ALLY_CITY) continue;
     if (tile.getType() == TileType::ENEMY_CITY) continue;
+    if (flags & PathFlags::CANNOT_MOVE_THROUGH_FRIENDLY_CITIES && tile.getType() == TileType::ALLY_CITY) continue;
+    if (flags & PathFlags::MUST_BE_NIGHT_SURVIVABLE_TILE && !(tile.getType() == TileType::ALLY_CITY || hasAdjacentResources(neighbourIndex))) continue;
     neighbours.push_back(neighbourIndex);
   }
 
@@ -53,6 +55,15 @@ bool Map::isValidNeighbour(tileindex_t source, kit::DIRECTIONS direction) const
     case kit::DIRECTIONS::SOUTH: return y < m_height-1;
     case kit::DIRECTIONS::NORTH: return y > 0;
     default: throw std::runtime_error("Got unexpected direction " + std::to_string((int)direction));
+    }
+}
+
+void Map::rebuildResourceAdjencies()
+{
+    m_resourcesAdjencies.setSize(m_width, m_height);
+    for(tileindex_t i = 0; i < m_tiles.size(); i++) {
+        if(tileAt(i).getType() == TileType::RESOURCE)
+            m_resourcesAdjencies.addTemplateAtIndex(i, influence_templates::SHAPE_CROSS);
     }
 }
 

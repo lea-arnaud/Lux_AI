@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "Benchmarking.h"
 #include "GameRules.h"
 #include "Log.h"
 #include "InfluenceMap.h"
@@ -10,13 +11,6 @@
 
 namespace pathing
 {
-
-// TODO move these constants in the functions that uses them, or into structures names after the function
-// currently it is hard to know exactly what their purpose are
-//static constexpr float ADJACENT_CITIES_WEIGHT = 10.0f;
-static constexpr float ADJACENT_CITIES_WEIGHT = 0.0f; // TODO restore with better pathfinding
-static constexpr float RESOURCE_NB_WEIGHT = 1.0f;
-static constexpr float DISTANCE_WEIGHT = -1.0f;
 
 bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, const std::vector<tileindex_t> &botPositions, size_t moveAheadCount)
 {
@@ -33,39 +27,47 @@ bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, con
   return true;
 }
 
-tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameState)
+tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameState, float distanceWeight)
 {
+  static constexpr float RESOURCE_NB_WEIGHT = +1.f;
+
   const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
 
   const Map *map = &gameState->map;
+  size_t currentResearchPoints = gameState->playerResearchPoints[Player::ALLY];
+
+  tileindex_t botTile = map->getTileIndex(*bot);
 
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
-  for (tileindex_t i = 0; i < map->getMapSize(); i++)
-  {
-    if(map->tileAt(i).getType() == TileType::ALLY_CITY)
+  for (tileindex_t i = 0; i < map->getMapSize(); i++) {
+    if(map->tileAt(i).getType() == TileType::ALLY_CITY || map->tileAt(i).getType() == TileType::ENEMY_CITY)
       continue;
-    std::pair<int, int> coords = map->getTilePosition(i);
-    size_t neighborResources = 0;
-    std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
-    for (tileindex_t j : neighbors)
-    {
-      if (map->tileAt(j).getType() == TileType::RESOURCE)
-      {
-        switch (map->tileAt(j).getResourceType())
-        {
-          // FIX consider research points
-        case kit::ResourceType::wood: neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_WOOD, map->tileAt(j).getResourceAmount())); break;
-        case kit::ResourceType::coal: neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_COAL, map->tileAt(j).getResourceAmount())); break;
-        case kit::ResourceType::uranium: neighborResources += std::min(neededResources, std::min((int)game_rules::COLLECT_RATE_URANIUM, map->tileAt(j).getResourceAmount())); break;
+    int neighborResources = 0;
+    std::vector<tileindex_t> neighbors = map->getValidNeighbours(i, PathFlags::NONE);
+    for (tileindex_t j : neighbors) {
+      if (map->tileAt(j).getType() == TileType::RESOURCE) {
+        switch (map->tileAt(j).getResourceType()) {
+        case kit::ResourceType::wood:
+          neighborResources += std::min((int)game_rules::COLLECT_RATE_WOOD, map->tileAt(j).getResourceAmount());
+          break;
+        case kit::ResourceType::coal:
+          if(currentResearchPoints >= game_rules::MIN_RESEARCH_COAL)
+            neighborResources += std::min((int)game_rules::COLLECT_RATE_COAL, map->tileAt(j).getResourceAmount());
+          break;
+        case kit::ResourceType::uranium:
+          if(currentResearchPoints >= game_rules::MIN_RESEARCH_URANIUM)
+            neighborResources += std::min((int)game_rules::COLLECT_RATE_URANIUM, map->tileAt(j).getResourceAmount());
+          break;
         }
       }
     }
+    if (neighborResources == 0)
+      continue;
     float tileScore = 
-      RESOURCE_NB_WEIGHT * neighborResources +
-      DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
-    if (bestTileScore < tileScore)
-    {
+      RESOURCE_NB_WEIGHT * std::min(neededResources, neighborResources) +
+      distanceWeight * map->distanceBetween(botTile, i);
+    if (bestTileScore < tileScore) {
       bestTile = i;
       bestTileScore = tileScore;
     }
@@ -75,6 +77,10 @@ tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameSta
 
 tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameState)
 {
+  MULTIBENCHMARK_LAPBEGIN(getBestCityBuildingLocation);
+  static constexpr float DISTANCE_WEIGHT = -1.f;
+  static constexpr float ADJACENT_CITIES_WEIGHT = +1.f;
+
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
   const Map *map = &gameState->map;
@@ -83,7 +89,7 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameSta
     if(map->tileAt(i).getType() != TileType::EMPTY) continue;
     std::pair<int, int> coords = map->getTilePosition(i);
     size_t neighborCities = 0;
-    std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
+    std::vector<tileindex_t> neighbors = map->getValidNeighbours(i, PathFlags::NONE);
     for (tileindex_t j : neighbors)
     {
       if (map->tileAt(j).getType() == TileType::ALLY_CITY)
@@ -98,6 +104,7 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameSta
       bestTileScore = tileScore;
     }
   }
+  MULTIBENCHMARK_LAPEND(getBestCityBuildingLocation);
   return bestTile;
 }
 
@@ -110,6 +117,9 @@ tileindex_t getBestExpansionLocation(const Bot* bot, const GameState *gameState)
 
 tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameState)
 {
+  MULTIBENCHMARK_LAPBEGIN(getBestCityFeedingLocation);
+  static constexpr float DISTANCE_WEIGHT = -1.f;
+
   tileindex_t bestTile = -1;
   float bestTileScore = std::numeric_limits<float>::lowest();
   const Map *map = &gameState->map;
@@ -121,6 +131,7 @@ tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameStat
       bestTileScore = tileScore;
     }
   }
+  MULTIBENCHMARK_LAPEND(getBestCityFeedingLocation);
   return bestTile;
 }
 
@@ -148,8 +159,7 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState,
   tileindex_t bestTile = botTile;
   float bestScore = std::numeric_limits<float>::lowest();
   for (tileindex_t i = 0; i < map->getMapSize(); i++) {
-    bool hasAdjacentResources = map->tileAt(i).getType() == TileType::RESOURCE || 
-      std::ranges::any_of(map->getValidNeighbours(i), [&](tileindex_t n) { return map->tileAt(n).getType() == TileType::RESOURCE; });
+    bool hasAdjacentResources = map->hasAdjacentResources(i);
     bool isCity = map->tileAt(i).getType() == TileType::ALLY_CITY;
     if (!isCity && !hasAdjacentResources) continue;
     size_t dist = map->distanceBetween(i, botTile);
@@ -170,16 +180,56 @@ tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState,
   return bestTile;
 }
 
-std::vector<tileindex_t> getResourceFetchingLocation2(const Bot *bot, const GameState *gameState, int n)
+std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const GameState *gameState, int n)
 {
   static constexpr float DISTANCE_WEIGHT = 1.0f;
 
   InfluenceMap workingMap{ gameState->resourcesInfluence };
-  workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), agentTemplate, DISTANCE_WEIGHT);
-  workingMap.normalize();
-  workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), clusterTemplate, 2.0f);
+  workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), influence_templates::AGENT_PROXIMITY, DISTANCE_WEIGHT);
+  workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY, 2.0f);
 
   return workingMap.getNHighestPoints(n);
+}
+
+std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const GameState *gameState, int n)
+{
+    static constexpr float DISTANCE_WEIGHT = -1.f;
+    static constexpr float ADJACENT_CITIES_WEIGHT = +1.f;
+
+    std::vector<std::pair<tileindex_t, float>> tiles{};
+    const Map *map = &gameState->map;
+    for (tileindex_t i = 0; i < map->getMapSize(); i++) {
+        if (map->tileAt(i).getType() != TileType::EMPTY) continue;
+        std::pair<int, int> coords = map->getTilePosition(i);
+        size_t neighborCities = 0;
+        std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
+        for (tileindex_t j : neighbors) {
+            if (map->tileAt(j).getType() == TileType::ALLY_CITY)
+                neighborCities++;
+        }
+        float tileScore =
+            ADJACENT_CITIES_WEIGHT * neighborCities +
+            DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+        tiles.push_back(std::pair<tileindex_t, float>(i, tileScore));
+    }
+    std::ranges::sort(tiles, [](std::pair<tileindex_t, float> p1, std::pair<tileindex_t, float> p2) {return p1.second > p2.second; });
+    std::vector<tileindex_t> bestTiles{};
+    for (int i = 0; i < n; i++)
+    {
+        bestTiles.push_back(tiles[i].first);
+    }
+    return bestTiles;
+}
+
+std::vector<tileindex_t> getManyExpansionLocations(const Bot *bot, const GameState *gameState, int n)
+{
+    static constexpr float DISTANCE_WEIGHT = 1.0f;
+
+    InfluenceMap workingMap{ gameState->citiesInfluence };
+    workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), agentTemplate, DISTANCE_WEIGHT);
+    workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), clusterTemplate, 2.0f);
+
+    return workingMap.getNHighestPoints(n);
 }
 
 }

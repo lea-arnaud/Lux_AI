@@ -13,6 +13,8 @@ namespace kit
         void ExtractGameState();
         void GetTurnOrders(std::vector<std::string>& orders);
 
+        int getId() const { return mID; }
+
     private:
         player_t getPlayer(int teamId);
         static kit::ResourceType getResourceType(const std::string &name);
