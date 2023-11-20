@@ -448,7 +448,7 @@ public:
 std::shared_ptr<Task> behaviorWorker()
 {
   auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    taskLog("build city", taskBuildCity()      ));
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    taskLog("build city", taskBuildCity()));
   taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY,     taskLog("feed city",  taskFeedCity()       ));
   taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskLog("block tile", taskMoveToBlockTile()));
 

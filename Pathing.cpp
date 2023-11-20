@@ -191,4 +191,45 @@ std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const 
   return workingMap.getNHighestPoints(n);
 }
 
+std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const GameState *gameState, int n)
+{
+    static constexpr float DISTANCE_WEIGHT = -1.f;
+    static constexpr float ADJACENT_CITIES_WEIGHT = +1.f;
+
+    std::vector<std::pair<tileindex_t, float>> tiles{};
+    const Map *map = &gameState->map;
+    for (tileindex_t i = 0; i < map->getMapSize(); i++) {
+        if (map->tileAt(i).getType() != TileType::EMPTY) continue;
+        std::pair<int, int> coords = map->getTilePosition(i);
+        size_t neighborCities = 0;
+        std::vector<tileindex_t> neighbors = map->getValidNeighbours(i);
+        for (tileindex_t j : neighbors) {
+            if (map->tileAt(j).getType() == TileType::ALLY_CITY)
+                neighborCities++;
+        }
+        float tileScore =
+            ADJACENT_CITIES_WEIGHT * neighborCities +
+            DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+        tiles.push_back(std::pair<tileindex_t, float>(i, tileScore));
+    }
+    std::ranges::sort(tiles, [](std::pair<tileindex_t, float> p1, std::pair<tileindex_t, float> p2) {return p1.second > p2.second; });
+    std::vector<tileindex_t> bestTiles{};
+    for (int i = 0; i < n; i++)
+    {
+        bestTiles.push_back(tiles[i].first);
+    }
+    return bestTiles;
+}
+
+std::vector<tileindex_t> getManyExpansionLocations(const Bot *bot, const GameState *gameState, int n)
+{
+    static constexpr float DISTANCE_WEIGHT = 1.0f;
+
+    InfluenceMap workingMap{ gameState->citiesInfluence };
+    workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), agentTemplate, DISTANCE_WEIGHT);
+    workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), clusterTemplate, 2.0f);
+
+    return workingMap.getNHighestPoints(n);
+}
+
 }

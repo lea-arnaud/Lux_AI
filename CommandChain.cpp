@@ -48,26 +48,17 @@ std::vector<TurnOrder> Commander::getTurnOrders()
       [&](const auto &bot) { if(bot->getType() != UnitType::CITY) nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
 
     // collect agents that can act right now
-    std::vector<std::pair<Bot *, Archetype>> availableAgents{};
-    for (Squad &squad : m_squads) {
-        for (Bot *agent : squad.getAgents()) {
-            nbAgents += 1;
-            if (agent->getType() == UnitType::WORKER)
-                nbWorkers += 1;
-            else if (agent->getType() == UnitType::CART)
-                nbCarts += 1;
-            if(agent->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                availableAgents.emplace_back(agent, squad.getArchetype());
-        }
-    }
+    std::vector<Bot *> availableCities{};
 
     for (auto &city : m_gameState->bots) {
         if (city->getType() == UnitType::CITY && city->getTeam() == Player::ALLY) {
             nbCities++;
             if (city->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                availableAgents.emplace_back(city.get(), Archetype::CITIZEN);
+                availableCities.emplace_back(city.get());
         }
     }
+
+    lux::Annotate::sidetext("Number of available cities : " + std::to_string(availableCities.size()));
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, m_gameState);
@@ -81,27 +72,65 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, nbCities);
 
-    // fill in the orders list through agents behavior trees
-    std::ranges::for_each(availableAgents, [&,this](const std::pair<Bot *, Archetype> &agentAndArchetype) {
-        MULTIBENCHMARK_LAPBEGIN(AgentBT);
-        auto &[agent, archetype] = agentAndArchetype;
-        tileindex_t targetTile = 1;
+    std::ranges::for_each(availableCities, [&, this](Bot *city) {
+        BotObjective objective{ BotObjective::ObjectiveType::BUILD_CITY, 0 };
+        city->getBlackboard().insertData(bbn::AGENT_SELF, city);
+        city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
+        city->getBlackboard().setParentBoard(m_globalBlackboard);
+        city->act();
+    });
+
+    std::ranges::for_each(m_squads, [&, this](Squad &squad)
+    {
+        std::vector<tileindex_t> targetTiles{};
         BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
-        switch (archetype) {
-        case Archetype::CITIZEN: targetTile = pathing::getBestExpansionLocation(agent, m_gameState); break;
-        case Archetype::SETTLER: targetTile = pathing::getBestCityBuildingLocation(agent, m_gameState); break;
-        case Archetype::FARMER: mission = BotObjective::ObjectiveType::FEED_CITY; targetTile = pathing::getBestCityFeedingLocation(agent, m_gameState); break;
-        case Archetype::TROUBLEMAKER: mission = BotObjective::ObjectiveType::GO_BLOCK_PATH; break; //TODO implement pathing algorithm to block
-        case Archetype::ROADMAKER: mission = BotObjective::ObjectiveType::MAKE_ROAD; break; //TODO implement pathing algorithm to resource
-        default: break;
+        switch (squad.getArchetype()) {
+        case Archetype::CITIZEN: 
+            targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size()); 
+            break;
+        case Archetype::SETTLER: 
+            targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size()); 
+            break;
+        case Archetype::FARMER:
+            mission = BotObjective::ObjectiveType::FEED_CITY;
+            targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+            break;
+        case Archetype::TROUBLEMAKER:
+            targetTiles = { squad.getTargetTile() }; // TODO give more tiles to block ? Our troublemakers are loners though...
+            mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
+            break;
+        case Archetype::ROADMAKER:
+            mission = BotObjective::ObjectiveType::MAKE_ROAD; // Should only be applied to carts
+            // Also, we don't have any roadmakers for now...
+            break;
+        case Archetype::KILLER:
+            // TODO implement KILLER squad behavior with GOAP
+            break;
         }
-        
-        BotObjective objective{ mission, targetTile };
-        agent->getBlackboard().insertData(bbn::AGENT_SELF, agent);
-        agent->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
-        agent->getBlackboard().setParentBoard(m_globalBlackboard);
-        agent->act();
-        MULTIBENCHMARK_LAPEND(AgentBT);
+        // this code is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
+        // otherwise, some bots WON'T EVER MOVE
+
+        // for each target tile, we search the nearest bot
+        for (tileindex_t tile : targetTiles) {
+            Bot *nearestBot = squad.getAgents()[0];
+            unsigned int nearestDist = INT_MAX;
+            for (Bot *bot : squad.getAgents()) {
+                if (m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) < nearestDist) {
+                    nearestBot = bot;
+                    nearestDist = m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY()));
+                }
+            }
+            // we put this tile as the bot's objective
+            //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
+            BotObjective objective{ mission, tile };
+            MULTIBENCHMARK_LAPBEGIN(AgentBT);
+            nearestBot->getBlackboard().insertData(bbn::AGENT_SELF, nearestBot);
+            nearestBot->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
+            nearestBot->getBlackboard().setParentBoard(m_globalBlackboard);
+            // he acts only if he can
+            if (nearestBot->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
+                nearestBot->act();
+        }
     });
 
     // not critical, but keeping dandling pointers alive is never a good idea
@@ -432,4 +461,3 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
 
     return newSquads;
 }
-
