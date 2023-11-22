@@ -36,7 +36,7 @@ InfluenceMap& InfluenceMap::multiplyValueAtIndex(tileindex_t index, float value)
 
 InfluenceMap& InfluenceMap::addMap(const InfluenceMap &influenceMap, float weight)
 {
-  std::transform(std::execution::par, m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
+  std::transform(std::execution::seq, m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
       [weight](float currentScore, float otherScore) {
     return currentScore + (otherScore * weight);
   });
@@ -46,7 +46,7 @@ InfluenceMap& InfluenceMap::addMap(const InfluenceMap &influenceMap, float weigh
 
 InfluenceMap& InfluenceMap::multiplyMap(const InfluenceMap &influenceMap, float weight)
 {
-  std::transform(std::execution::par, m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
+  std::transform(std::execution::seq, m_map.begin(), m_map.end(), influenceMap.m_map.begin(), m_map.begin(),
       [weight](float currentScore, float otherScore) {
     return currentScore * (otherScore * weight);
   });
@@ -57,13 +57,13 @@ InfluenceMap& InfluenceMap::multiplyMap(const InfluenceMap &influenceMap, float 
 InfluenceMap& InfluenceMap::normalize()
 {
   // TODO: get the min and max in one loop
-  float minVal = *std::min_element(std::execution::par, m_map.begin(), m_map.end());
-  float maxVal = *std::max_element(std::execution::par, m_map.begin(), m_map.end());
+  float minVal = *std::min_element(std::execution::seq, m_map.begin(), m_map.end());
+  float maxVal = *std::max_element(std::execution::seq, m_map.begin(), m_map.end());
 
   if (minVal == maxVal)
     return *this;
 
-  std::transform(std::execution::par, m_map.begin(), m_map.end(), m_map.begin(),
+  std::transform(std::execution::seq, m_map.begin(), m_map.end(), m_map.begin(),
     [minVal, maxVal](float score) { return (score - minVal) / (maxVal - minVal); });
 
   return *this;
@@ -71,7 +71,7 @@ InfluenceMap& InfluenceMap::normalize()
 
 InfluenceMap& InfluenceMap::flip()
 {
-  std::transform(std::execution::par, m_map.begin(), m_map.end(), m_map.begin(),
+  std::transform(std::execution::seq, m_map.begin(), m_map.end(), m_map.begin(),
       [](float score) { return 1.0f - score; });
 
   return *this;
@@ -79,7 +79,7 @@ InfluenceMap& InfluenceMap::flip()
 
 tileindex_t InfluenceMap::getHighestPoint() const
 {
-  auto maxIterator = std::max_element(std::execution::par, m_map.begin(), m_map.end());
+  auto maxIterator = std::max_element(std::execution::seq, m_map.begin(), m_map.end());
   return static_cast<int>(std::distance(m_map.begin(), maxIterator));
 }
 
