@@ -14,7 +14,7 @@ constexpr T absolute(const T &x, std::enable_if_t<std::is_arithmetic_v<T>> * = n
 }
 
 template <typename T>
-constexpr T power(T num, unsigned int pow)
+constexpr T power(T num, unsigned int pow, std::enable_if_t<std::is_arithmetic_v<T>> * = nullptr)
 {
   return (pow >= sizeof(unsigned int)*8) ? 0 :
     pow == 0 ? 1 : num * power(num, pow - 1);
@@ -82,16 +82,16 @@ public:
 
   void clear() { std::fill(m_map.begin(), m_map.end(), 0.0f); }
 
-  void propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float));
-  void setValueAtIndex(tileindex_t index, float value);
-  void addValueAtIndex(tileindex_t index, float value);
-  void multiplyValueAtIndex(tileindex_t index, float value);
+  InfluenceMap& propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float));
+  InfluenceMap& setValueAtIndex(tileindex_t index, float value);
+  InfluenceMap& addValueAtIndex(tileindex_t index, float value);
+  InfluenceMap& multiplyValueAtIndex(tileindex_t index, float value);
 
-  void addMap(const InfluenceMap &influenceMap, float weight = 1.0f);
-  void multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);
+  InfluenceMap& addMap(const InfluenceMap &influenceMap, float weight = 1.0f);
+  InfluenceMap& multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);
 
   template <unsigned int W, unsigned int H>
-  void addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  InfluenceMap& addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
     int deltaX = index % m_width - W / 2;
     int deltaY = index / m_width - H / 2;
@@ -104,10 +104,12 @@ public:
 
       m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
     }
+
+    return *this;
   }
 
   template <unsigned int W, unsigned int H>
-  void multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
+  InfluenceMap& multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
   {
     int deltaX = index % m_width - W / 2;
     int deltaY = index / m_width - H / 2;
@@ -120,10 +122,12 @@ public:
 
       m_map[getIndex(x, y)] *= influenceTemplate.m_map[i] * weight;
     }
+
+    return *this;
   }
 
-  void normalize();
-  void flip();
+  InfluenceMap& normalize();
+  InfluenceMap& flip();
 
   tileindex_t getHighestPoint() const;
   std::vector<tileindex_t> getNHighestPoints(int n) const;
