@@ -114,26 +114,34 @@ std::vector<TurnOrder> Commander::getTurnOrders()
         // this code is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
         // otherwise, some bots WON'T EVER MOVE
 
+        std::unordered_set<Bot *> playableBots{ squad.getAgents().begin(), squad.getAgents().end() };
+
         // for each target tile, we search the nearest bot
         for (tileindex_t tile : targetTiles) {
-            Bot *nearestBot = squad.getAgents()[0];
+            if(tile == (tileindex_t)-1) {
+                LOG("Could not find a valid target for goal " << (int)squad.getArchetype());
+                continue; // an objective cannot be fullfilled
+            }
+            if(playableBots.empty()) break;
+            Bot *nearestBot = nullptr;
             unsigned int nearestDist = INT_MAX;
-            for (Bot *bot : squad.getAgents()) {
+            for (Bot *bot : playableBots) {
                 if (m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) < nearestDist) {
                     nearestBot = bot;
                     nearestDist = m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY()));
                 }
             }
+            playableBots.erase(nearestBot);
+            // he acts only if he can
+            if (nearestBot->getCooldown() >= game_rules::MAX_ACT_COOLDOWN)
+                continue;
             // we put this tile as the bot's objective
             //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
             BotObjective objective{ mission, tile };
-            MULTIBENCHMARK_LAPBEGIN(AgentBT);
             nearestBot->getBlackboard().insertData(bbn::AGENT_SELF, nearestBot);
             nearestBot->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
             nearestBot->getBlackboard().setParentBoard(m_globalBlackboard);
-            // he acts only if he can
-            if (nearestBot->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                nearestBot->act();
+            nearestBot->act();
         }
     });
 
@@ -454,7 +462,7 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
         // 1/3 farmers
         if(lateAssign % 3 == 0) {
             tileindex_t targetCity = pathing::getBestCityFeedingLocation(remainingBot, gameState);
-            if(targetCity != -1) {
+            if(targetCity != (tileindex_t)-1) {
                 newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::FARMER, targetCity);
                 continue;
             }

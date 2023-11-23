@@ -98,10 +98,12 @@ std::vector<tileindex_t> InfluenceMap::getNHighestPoints(int n) const
   // Partially sort the indexed vector based on the values
   std::ranges::partial_sort(indexedVec, indexedVec.begin() + n, std::greater());
 
-  std::vector<tileindex_t> resultIndices(n);
-  for (tileindex_t i = 0; i < n; ++i) {
-    resultIndices[i] = indexedVec[i].second;
-  }
+  std::vector<tileindex_t> resultIndices;
+  resultIndices.reserve(n);
+  for (tileindex_t i = 0; i < n && i < indexedVec.size(); ++i)
+    resultIndices.push_back(indexedVec[i].second);
+  while (resultIndices.size() < n)
+    resultIndices.push_back(-1);
 
   return resultIndices;
 }
