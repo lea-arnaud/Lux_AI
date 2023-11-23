@@ -14,6 +14,7 @@
 #include "IAParams.h"
 #include "BehaviorTreeNames.h"
 #include "Benchmarking.h"
+#include "Statistics.h"
 
 
 Commander::Commander()
@@ -70,6 +71,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
     m_globalBlackboard->insertData(bbn::GLOBAL_WORKERS, nbWorkers);
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
+    m_globalBlackboard->insertData(bbn::GLOBAL_CITY_COUNT, (int)m_gameState->citiesBot.size());
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, nbCities);
 
     std::ranges::for_each(availableCities, [&, this](Bot *city) {
@@ -79,6 +81,8 @@ std::vector<TurnOrder> Commander::getTurnOrders()
         city->getBlackboard().setParentBoard(m_globalBlackboard);
         city->act();
     });
+
+    statistics::gameStats.printGameStats(m_globalBlackboard);
 
     std::ranges::for_each(m_squads, [&, this](Squad &squad)
     {

@@ -28,7 +28,7 @@ namespace statistics {
 		{
 			turnNb = blackboard.getData<size_t>( bbn::GLOBAL_TURN);
 			p1cities = blackboard.getData<size_t> ( bbn::GLOBAL_FRIENDLY_CITY_COUNT );
-			p2cities = p1cities - blackboard.getData<size_t> ( bbn::GLOBAL_CITY_COUNT );
+			p2cities = blackboard.getData<size_t> ( bbn::GLOBAL_CITY_COUNT ) - p1cities;
 			//turnNb = blackboard.getData<size_t> ( bbn::GLOBAL_TURN );
 			//turnNb = blackboard.getData<size_t> ( bbn::GLOBAL_TURN );
 		}
@@ -49,23 +49,21 @@ namespace statistics {
 			auto endtxt = chrono::system_clock::to_time_t(end);// + string(ctime(&endtxt)));
 			string timetxt = to_string(endtxt);
 
-			fileName = "./actuallyAGameStatsFile.txt" + timetxt;
+			fileName = "./../../results/" + params::statPath;
 		}
 ;
 
 		void printGameStats (shared_ptr<Blackboard> blackboard) {
 
-			file.open(fileName, ios::in |ios::out|ios::app);
+			file.open("./../../results/" + params::statPath + ".txt", ios::in |ios::out|ios::app);
 
-			//size_t turnNb = blackboard->getData<size_t>(bbn::GLOBAL_TURN);
-			//size_t p1cities = blackboard->getData<size_t>(bbn::GLOBAL_FRIENDLY_CITY_COUNT);
-			//size_t p2cities = p1cities - blackboard->getData<size_t>(bbn::GLOBAL_CITY_COUNT);
+			size_t turnNb = blackboard->getData<size_t>(bbn::GLOBAL_TURN);
+			int p1cities = blackboard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT);
+			int p2cities = blackboard->getData<int>(bbn::GLOBAL_CITY_COUNT) - p1cities;
 
-			file << "Turn " << "0";//turnNb << " : " << "P1 => " << p1cities << "; P2 => " << p2cities;
+			file << "Turn " << turnNb << " : " << "P1 => &" << p1cities << "&; P2 => &" << p2cities << "&\n";
 
 			file.close();
-
-			LOG("written game stats");
 		}
 	};
 

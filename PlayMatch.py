@@ -8,7 +8,7 @@ import multiprocessing
 import glob
 
 seeds = [200]
-bots = ["build-solution-x64\Debug\\1noprint.exe", "build-solution-x64\Debug\\1.exe"]
+bots = ["build-solution-x64\Debug\\1.exe", "build-solution-x64\Debug\\EquipeA.exe"]
 
 def is_env_var_set(name):
     return name in os.environ and os.environ[name] != ''
@@ -62,6 +62,10 @@ def read_to_string(file_path):
        
 if __name__ == '__main__':
     os.system('')
+    
+    if len(sys.argv) > 1:
+        seeds = [int(sys.argv[1])]
+    
     print('Using bots\033[33m', *bots, '\033[0m')
     print('Config:', *map(lambda x: (x, eval(x)), ['no_timeout', 'cpu_cores', 'silent', 'verbose']))
     print(f'Running on {len(seeds)=}')

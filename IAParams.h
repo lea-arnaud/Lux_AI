@@ -1,9 +1,13 @@
 #pragma once
+#include <string>
 
 
 namespace params
 {
-  // Max number of turns to keep for ennemy pathing  
+  // # Path where the stat files are created
+  extern std::string statPath;
+
+  // # Max number of turns to keep for ennemy pathing  
   extern int ennemyPathingTurn;
 
   // # Enemy squad detection
@@ -22,4 +26,6 @@ namespace params
   // ## Enemy approach detection
   // Step in turns between points compared to see if the enemy is approaching
   extern int pathStep;
+
+  void updateParams();
 }
