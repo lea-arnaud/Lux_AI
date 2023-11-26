@@ -233,6 +233,13 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 {
     std::vector<EnemySquadInfo> enemySquads;
 
+    LOG("Turn " + std::to_string(gameState.currentTurn));
+    if (gameState.currentTurn == 15 || gameState.currentTurn == 39)
+    {
+        LOG("resources : ");
+        gameState.resourcesInfluence.printMap();
+    }
+
     auto cityClusters = getCityClusters(gameState);
 
     { // remove small enemy clusters (ongoing expansions)
@@ -241,6 +248,8 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
     }
 
     std::vector<std::string> seenIds{}; 
+
+    bool b = false;
 
     for(const std::unique_ptr<Bot> &bot : gameState.bots) {
       // We don't look at enemies nor cities
@@ -266,9 +275,10 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
           if (std::ranges::find(seenIds, bot2->getId()) != seenIds.end())
               continue;
           if (!gameState.ennemyPath.contains(bot2->getId())) continue;
-          auto &path2 = gameState.ennemyPath.at(bot2->getId());
-          // We check of paths are similar -> TODO propagate maps to avoid not registering bots side by side as same squad
-          if (path.getSimilarity(path2, params::similarityTolerance) >= params::similarPercentage) {
+          if (bot->getId() == bot2->getId()) continue;
+          auto path2 = (gameState.ennemyPath.at(bot2->getId())).propagateAllTimes(params::propagationRadius);
+          // We check if paths are similar
+          if ((path.propagateAllTimes(params::propagationRadius)).getSimilarity(path2, params::similarityTolerance) >= params::similarPercentage) {
             seenIds.push_back(bot2->getId());
             if (bot->getType() == UnitType::WORKER)
                 enemySquadInfo.botNb++;
@@ -277,31 +287,55 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
           }
       }
 
+      // propagate the path (blur) to make it more sensitive to surroundings
+      InfluenceMap propagatedPath = path.propagateAllTimes(params::propagationRadius);
+      propagatedPath.normalize();
+
+      if (gameState.currentTurn == 15 || gameState.currentTurn == 39) {
+          if (!b) {
+              LOG("path : ");
+              path.printMap();
+              LOG("propagated path : ");
+              propagatedPath.printMap();
+              b = true;
+          }
+      }
+        
       // guess the squad's current objective
-      // TODO propagate path
-      // enemyCities is an InfluenceMap created to facilitate operations with path
-      InfluenceMap enemyCities{gameState.citiesInfluence};
-      enemyCities.clear(); // TODO create an empty map instead of clearing it instantly
-      std::ranges::for_each(cityClusters[Player::ENEMY], [&enemyCities](CityCluster cc) {
-        enemyCities.addTemplateAtIndex(enemyCities.getIndex(cc.center_x, cc.center_y), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY);
-      });
-      
-      // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
-      if (path.covers(gameState.resourcesInfluence, params::resourceCoverageNeeded) && path.covers(enemyCities, params::cityCoverageNeeded)) 
+
+      // if bot's path covers a resource point... TODO might need to propagate resourceInfluence
+      if (propagatedPath.coversTiles(gameState.resourcesInfluence.propagateAllTimes(1), params::resourceTilesNeeded))
       {
-          enemySquadInfo.mission = Archetype::FARMER; // Or CITIZEN, really
-          InfluenceMap startCheck{ path };
-          startCheck.multiplyMap(enemyCities);
-          // start is the enemy city
-          auto [start_x, start_y] = startCheck.getCoord(startCheck.getHighestPoint());
-          enemySquadInfo.start_x = start_x;
-          enemySquadInfo.start_y = start_y;
-          InfluenceMap endCheck{ path };
-          endCheck.multiplyMap(gameState.resourcesInfluence);
-          // end is the resource point
-          auto [end_x, end_y] = endCheck.getCoord(endCheck.getHighestPoint());
-          enemySquadInfo.dest_x = end_x;
-          enemySquadInfo.dest_y = end_y;
+          LOG("Enemy Bot at (" + std::to_string(bot->getX()) + ";" + std::to_string(bot->getY()) + ") crossed a resource recently");
+          // enemyCities is an InfluenceMap created to facilitate operations with path
+          InfluenceMap enemyCities{gameState.citiesInfluence.getWidth(), gameState.citiesInfluence.getHeight()};
+          bool coversACity = false;
+          for (int i = 0; i < cityClusters[Player::ENEMY].size(); i++){
+              InfluenceMap ccMap{ gameState.citiesInfluence.getWidth(), gameState.citiesInfluence.getHeight() };
+              ccMap.addTemplateAtIndex(ccMap.getIndex(cityClusters[Player::ENEMY][i].center_x, cityClusters[Player::ENEMY][i].center_y), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY);
+              if (propagatedPath.coversTiles(ccMap, params::cityTilesNeeded)) {
+                  coversACity = true;
+                  break;
+              }
+          };
+      
+          // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
+          if (coversACity) {
+              LOG("Enemy Bot at (" + std::to_string(bot->getX()) + ";" + std::to_string(bot->getY()) + ") crossed a city recently too, FARMER");
+              enemySquadInfo.mission = Archetype::FARMER; // Or CITIZEN, really
+              InfluenceMap startCheck{ path };
+              startCheck.multiplyMap(enemyCities);
+              // start is the enemy city
+              auto [start_x, start_y] = startCheck.getCoord(startCheck.getHighestPoint());
+              enemySquadInfo.start_x = start_x;
+              enemySquadInfo.start_y = start_y;
+              InfluenceMap endCheck{ path };
+              endCheck.multiplyMap(gameState.resourcesInfluence);
+              // end is the resource point
+              auto [end_x, end_y] = endCheck.getCoord(endCheck.getHighestPoint());
+              enemySquadInfo.dest_x = end_x;
+              enemySquadInfo.dest_y = end_y;
+          }
       }
       else // if we see a bot approaching one of our cities in "kind of a straight line" (depending on pathStep), he's hostile :
           // if they are many, they probably want to kill a city and/or units => KILLER
@@ -338,6 +372,28 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       enemySquads.push_back(enemySquadInfo);
     }
 
+    int citizens = 0, killers = 0, settlers = 0, troublemakers = 0, farmers = 0, roadmakers = 0;
+
+    for (size_t i = 0; i < enemySquads.size(); i++) {
+        switch (enemySquads[i].mission) {
+        case Archetype::CITIZEN: citizens++; break;
+        case Archetype::KILLER: killers++; break;
+        case Archetype::SETTLER: settlers++; break;
+        case Archetype::TROUBLEMAKER: troublemakers++; break;
+        case Archetype::FARMER: farmers++; break;
+        case Archetype::ROADMAKER: roadmakers++; break;
+        default:
+            break;
+        }
+    }
+
+    lux::Annotate::sidetext("nb of SETTLER : " + std::to_string(settlers));
+    lux::Annotate::sidetext("nb of CITIZEN : " + std::to_string(citizens));
+    lux::Annotate::sidetext("nb of FARMER : " + std::to_string(farmers));
+    lux::Annotate::sidetext("nb of KILLER : " + std::to_string(killers));
+    lux::Annotate::sidetext("nb of TROUBLEMAKER : " + std::to_string(troublemakers));
+    lux::Annotate::sidetext("nb of ROADMAKER : " + std::to_string(roadmakers));
+
     return enemySquads;
 }
 
@@ -358,6 +414,14 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     const std::vector<CityCluster> &allyCities = clusters[Player::ALLY];
     const std::vector<CityCluster> &enemyCities = clusters[Player::ENEMY];
 
+    std::map<Archetype, size_t> priorities{}; // FUTURE should be a constexpr std::array<priority_t, 6>
+    priorities.emplace(Archetype::CITIZEN, 2);
+    priorities.emplace(Archetype::FARMER, 2);
+    priorities.emplace(Archetype::KILLER, 2);
+    priorities.emplace(Archetype::ROADMAKER, 2);
+    priorities.emplace(Archetype::SETTLER, 2);
+    priorities.emplace(Archetype::TROUBLEMAKER, 2);
+
     // explore
     // (after all requirements have been fullfilled, remaining bots will be assigned
     // to settlers that target a tile near them)
@@ -371,20 +435,13 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
         availableBots--;
     }
 
-    std::map<Archetype, size_t> priorities{}; // FUTURE should be a constexpr std::array<priority_t, 6>
-    priorities.emplace(Archetype::CITIZEN, 2);
-    priorities.emplace(Archetype::FARMER, 2);
-    priorities.emplace(Archetype::KILLER, 2);
-    priorities.emplace(Archetype::ROADMAKER, 2);
-    priorities.emplace(Archetype::SETTLER, 2);
-    priorities.emplace(Archetype::TROUBLEMAKER, 2);
-
     //Retaliation
     for (size_t i = 0; i < enemyStance.size() && (availableBots > 0 || availableCarts > 0); i++) {
         SquadRequirement sr{};
         const EnemySquadInfo &enemySquad = enemyStance[i];
         switch (enemySquad.mission) {
-        case Archetype::ROADMAKER: {
+        case Archetype::ROADMAKER:
+        {
             sr.botNb = 1;
             sr.cartNb = 0;
             sr.priority = priorities[Archetype::ROADMAKER];
@@ -392,22 +449,23 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
             auto [targetX, targetY] = enemySquad.path.getRandomValuedPoint();
             sr.missionTarget = gameState.map.getTileIndex(targetX, targetY);
             squadRequirements.emplace_back(sr);
-            priorities.emplace(Archetype::ROADMAKER, priorities[Archetype::ROADMAKER]+1);
+            priorities[Archetype::ROADMAKER] = priorities[Archetype::ROADMAKER]+1;
             availableBots--;
         } break; // ROADMAKER blocked by TROUBLEMAKER
         //case SETTLER:
-        //    sr.botNb = 1;
-        //    sr.cartNb = 0;
+        //    sr.botNb = x; // x + y = enough to surround the squad (4 for 1, 6 for 2...)
+        //    sr.cartNb = y;
         //    sr.priority = priorities[SETTLER];
-        //    sr.mission = SETTLER;
-        //    // TODO does it realy make sense to create a squad that can go anywhere when we detect an enemy settler?
+        //    sr.mission = KILLER;
         //    // its quite hard to separate the code that dictates what squads to create to the one that actually creates them...
         //    sr.missionTarget = SquadRequirement::ANY_TARGET;
         //    squadRequirements.emplace_back(sr);
         //    priorities.emplace(SETTLER, priorities[SETTLER]+1);
-        //    availableBots--;
-        //    break; // SETTLER blocked by SETTLER : don't go in their direction
+        //    availableBots -= x;
+        //    availableCarts -= y;
+        //    break; // SETTLER blocked by KILLER : kill'em and steal their spot
         default:
+            priorities[enemySquad.mission] = priorities[enemySquad.mission]+1;
             //LOG("Cannot react to enemy squad with type " << (int)enemySquad.mission);
             break;
         }

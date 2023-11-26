@@ -17,6 +17,13 @@ namespace params
   extern float similarPercentage;
   // Power for the difference between two path points value for similarity (this difference is always <= 1)
   extern float similarityTolerance;
+  // Propagation of paths radius
+  extern float propagationRadius;
+
+  // ## Path linking resource and city detection - TILES VERSION
+  // Percentage of the InfluenceMap of the resource/city needed to be considered as linking
+  extern int resourceTilesNeeded;
+  extern int cityTilesNeeded;
 
   // ## Path linking resource and city detection
   // Percentage of the InfluenceMap of the resource/city needed to be considered as linking

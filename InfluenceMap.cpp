@@ -1,5 +1,6 @@
 #include "InfluenceMap.h"
-
+#include <string>
+#include <iostream>
 #include <algorithm>
 
 #ifdef _DEBUG
@@ -16,12 +17,12 @@ void InfluenceMap::setSize(int width, int height)
   m_map.resize(width * height, 0.0f);
 }
 
-void InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float))
+void InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float), int range = 32)
 {
   auto [x1, y1] = getCoord(index);
 
-  for (int y2 = 0; y2 < m_height; ++y2) {
-    for (int x2 = 0; x2 < m_width; ++x2) {
+  for (int y2 = 0; y2 < std::min(m_height, range); ++y2) {
+    for (int x2 = 0; x2 < std::min(m_width, range); ++x2) {
       m_map[index] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
     }
   }
@@ -114,9 +115,14 @@ float InfluenceMap::getSimilarity(const InfluenceMap &map2, float similarityTole
     throw std::runtime_error("Cannot compare maps of different sizes");
 
   float similarity = 0;
-  for (int i = 0; i < getSize(); i++)
-    similarity += std::max(0.f, 1 - std::powf(std::abs(m_map[i] - map2.m_map[i]), similarityTolerance));
-  return similarity * 100.f / getSize();
+  float count = 0;
+  for (int i = 0; i < getSize(); i++) 
+  {
+      if (m_map[i] == 0 && map2.m_map[i] == 0) continue;
+      count++;
+      similarity += std::max(0.f, 1 - std::powf(std::abs(m_map[i] - map2.m_map[i]), similarityTolerance));
+  }
+  return similarity * 100.f / count;
 }
 
 std::pair<tileindex_t, tileindex_t> InfluenceMap::getStartAndEndOfPath()
@@ -140,7 +146,7 @@ std::pair<tileindex_t, tileindex_t> InfluenceMap::getStartAndEndOfPath()
   return { start, end };
 }
 
-bool InfluenceMap::covers(const InfluenceMap &mapToCover, float coverageNeeded) const
+bool InfluenceMap::coversPercentage(const InfluenceMap &mapToCover, float coverageNeeded) const
 {
   float total = 0;
   float covered = 0;
@@ -152,6 +158,24 @@ bool InfluenceMap::covers(const InfluenceMap &mapToCover, float coverageNeeded) 
     }
   }
   return covered/total*100.f > coverageNeeded;
+}
+
+bool InfluenceMap::coversTiles(const InfluenceMap &mapToCover, int tilesNeeded) const
+{
+    int covered = 0;
+    for (int i = 0; i < getSize(); i++) {
+        if (mapToCover.m_map[i] > 0) {
+            if (m_map[i] > 0) {
+                covered++;
+                std::cerr << "case (" + std::to_string(getCoord(i).first) + ";" + std::to_string(getCoord(i).second) + ") was covered" << std::endl;
+                if (covered >= tilesNeeded)
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 bool InfluenceMap::approachesPoint(int tile_x, int tile_y, int length, int step) const

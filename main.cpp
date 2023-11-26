@@ -21,38 +21,6 @@ int main()
 
     statistics::GameStats{};
 
-    /*std::ifstream paramFile{};
-
-    paramFile.open("./../../parametersFile.txt");
-    std::string text{};
-
-    while (std::getline(paramFile,text))
-    {
-        if (text.find("pathLength=") != std::string::npos)
-        {
-            params::ennemyPathingTurn = std::stoi(text.substr(11));
-        }
-        if (text.find("similarityPercentage=") != std::string::npos) {
-            params::similarPercentage = std::stof(text.substr(21));
-        }
-        if (text.find("similarityTolerance=") != std::string::npos) {
-            params::similarityTolerance = std::stof(text.substr(20));
-        }
-        if (text.find("resourceCoverage=") != std::string::npos) {
-            params::resourceCoverageNeeded = std::stof(text.substr(17));
-        }
-        if (text.find("cityCoverage=") != std::string::npos) {
-            params::cityCoverageNeeded = std::stof(text.substr(13));
-        }
-        if (text.find("pathStep=") != std::string::npos) {
-            params::pathStep = std::stoi(text.substr(9));
-        }
-        if (text.find("fileName=") != std::string::npos) {
-            params::statPath = text.substr(9);
-            LOG("found it ! " + params::statPath);
-        }
-    }*/
-
     int playedTurns = 360; // set to only play up to that turn
     if (playedTurns != 360) std::cerr << "WITH MAX TURN PLAYED " << playedTurns << std::endl;
 

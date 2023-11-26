@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 #include <random>
+#include <iostream>
 
 #include "Types.h"
 
@@ -68,7 +69,7 @@ public:
 
   void clear() { std::ranges::fill(m_map, 0.0f); }
 
-  void propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float));
+  void propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float), int range);
   void setValueAtIndex(tileindex_t index, float value);
   void addValueAtIndex(tileindex_t index, float value);
   void multiplyValueAtIndex(tileindex_t index, float value);
@@ -96,11 +97,57 @@ public:
   // Useful only for paths
   std::pair<tileindex_t, tileindex_t> getStartAndEndOfPath();
 
-  bool covers(const InfluenceMap& mapToCover, float coverageNeeded) const;
+  bool coversPercentage(const InfluenceMap& mapToCover, float coverageNeeded) const;
+
+  bool coversTiles(const InfluenceMap &mapToCover, int tilesNeeded) const;
 
   bool approachesPoint(int tile_x, int tile_y, int length, int step) const;
 
   std::pair<unsigned int, unsigned int> getRandomValuedPoint() const;
+
+  InfluenceMap propagateAllTimes(int n) const
+  {
+      InfluenceMap i1 = propagateAllOnce();
+      for (int i = 0; i < n-1; i++)
+      {
+          i1 = i1.propagateAllOnce();
+      }
+      return i1;
+  }
+
+  void printMap () const
+  {
+      for (int i = 0; i < getHeight(); i++) {
+          for (int j = 0; j < getWidth(); j++) {
+              if (m_map[i*getWidth()+j] >= 1.f) std::cerr << "*";
+              else if (m_map[i*getWidth()+j] >= 0.75f) std::cerr << "+";
+              else if (m_map[i*getWidth()+j] >= 0.5f) std::cerr << "/";
+              else if (m_map[i*getWidth()+j] >= 0.25f) std::cerr << "-";
+              else std::cerr << "_";
+          }
+          std::cerr << '\n';
+      }
+  }
+
+private:
+  InfluenceMap propagateAllOnce() const
+  {
+      InfluenceMap propagated{m_width, m_height};
+      for (int i = 0; i < m_height; i++)
+      {
+          for (int j = 0; j < m_width; j++)
+          {
+              propagated.m_map[i*m_width + j] += m_map[i*m_width + j];
+              if (i < m_height-1) propagated.m_map[(i+1)*m_width + j] += m_map[i*m_width + j]/2.f;
+              if (i > 0) propagated.m_map[(i-1)*m_width + j] += m_map[i*m_width + j]/2.f;
+              if (j < m_width-1) propagated.m_map[i*m_width + j + 1] += m_map[i*m_width + j]/2.f;
+              if (j > 0) propagated.m_map[i*m_width + j - 1] += m_map[i*m_width + j]/2.f;
+              propagated.propagate(i*m_width + j, m_map[i*m_width+j], [](float f1, float f2)-> float {return std::max(0.f, f1 - f2/2.f); }, 2);
+          }
+      }
+      return propagated;
+  }
+
 };
 
 template <unsigned W, unsigned H>
