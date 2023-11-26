@@ -234,11 +234,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
     std::vector<EnemySquadInfo> enemySquads;
 
     LOG("Turn " + std::to_string(gameState.currentTurn));
-    if (gameState.currentTurn == 15 || gameState.currentTurn == 39)
-    {
-        LOG("resources : ");
-        gameState.resourcesInfluence.printMap();
-    }
 
     auto cityClusters = getCityClusters(gameState);
 
@@ -290,23 +285,12 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       // propagate the path (blur) to make it more sensitive to surroundings
       InfluenceMap propagatedPath = path.propagateAllTimes(params::propagationRadius);
       propagatedPath.normalize();
-
-      if (gameState.currentTurn == 15 || gameState.currentTurn == 39) {
-          if (!b) {
-              LOG("path : ");
-              path.printMap();
-              LOG("propagated path : ");
-              propagatedPath.printMap();
-              b = true;
-          }
-      }
         
       // guess the squad's current objective
 
       // if bot's path covers a resource point... TODO might need to propagate resourceInfluence
       if (propagatedPath.coversTiles(gameState.resourcesInfluence.propagateAllTimes(1), params::resourceTilesNeeded))
       {
-          LOG("Enemy Bot at (" + std::to_string(bot->getX()) + ";" + std::to_string(bot->getY()) + ") crossed a resource recently");
           // enemyCities is an InfluenceMap created to facilitate operations with path
           InfluenceMap enemyCities{gameState.citiesInfluence.getWidth(), gameState.citiesInfluence.getHeight()};
           bool coversACity = false;
@@ -321,7 +305,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       
           // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
           if (coversACity) {
-              LOG("Enemy Bot at (" + std::to_string(bot->getX()) + ";" + std::to_string(bot->getY()) + ") crossed a city recently too, FARMER");
               enemySquadInfo.mission = Archetype::FARMER; // Or CITIZEN, really
               InfluenceMap startCheck{ path };
               startCheck.multiplyMap(enemyCities);
@@ -346,6 +329,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         // we seek if a city is targeted
         for (CityCluster cc : cityClusters[0])
         {
+            // TODO we may wanna create a specific parameter for the length of this path
             if (path.approachesPoint(cc.center_x, cc.center_y, params::ennemyPathingTurn, params::pathStep))
             {
                 movingTowardsAllyCity = true;

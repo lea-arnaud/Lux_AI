@@ -9,6 +9,8 @@ std::mt19937 g_randomEngine{ 0 };
 std::mt19937 g_randomEngine{ std::random_device{}()};
 #endif
 
+constexpr float PI = 3.14159265359f;
+
 void InfluenceMap::setSize(int width, int height)
 {
   m_width = width;
@@ -167,7 +169,6 @@ bool InfluenceMap::coversTiles(const InfluenceMap &mapToCover, int tilesNeeded) 
         if (mapToCover.m_map[i] > 0) {
             if (m_map[i] > 0) {
                 covered++;
-                std::cerr << "case (" + std::to_string(getCoord(i).first) + ";" + std::to_string(getCoord(i).second) + ") was covered" << std::endl;
                 if (covered >= tilesNeeded)
                 {
                     return true;
@@ -180,26 +181,37 @@ bool InfluenceMap::coversTiles(const InfluenceMap &mapToCover, int tilesNeeded) 
 
 bool InfluenceMap::approachesPoint(int tile_x, int tile_y, int length, int step) const
 {
+  float angle = PI/4.f;
+
   // we collect the points corresponding to each turn - i * step, for i in [|0, length/step|]
-  std::vector<std::pair<size_t, float>> distances{};
+  std::vector<std::pair<tileindex_t, float>> distances{};
   // we seek in the map
   for (tileindex_t i = 0; i < getSize(); i++)
   {
-    auto [x, y] = getCoord(i);
-    // we seek the value
-    for (size_t j = 0; j < length; j += step) {
-      // this should be verified for one tile only, so we're gonna break once it is verified
-      if (m_map[i] <= j / length && m_map[i] > (j-1)/length) {
-        distances.emplace_back(j, std::sqrtf((float)((tile_x - x) * (tile_x - x) + (tile_y - y) * (tile_y - y))));
-        break;
-      }
-    }
+      if (m_map[i] > 0)
+        distances.push_back(std::pair<tileindex_t, float>(i, m_map[i]));
   }
-  std::ranges::sort(distances);
-  for (size_t i = 1; i < distances.size(); i++)
-    if (distances[i-1].second > distances[i].second)
-      return false;
-  return true;
+  std::ranges::sort(distances, std::less{});
+  std::pair<int, int> direction{};
+  if (distances.size() > step) {
+      std::pair<int, int> coords = getCoord(distances[distances.size()-1].first);
+      direction.first = tile_x - coords.first;
+      direction.second = tile_y - coords.second;
+      direction.first /= sqrt(direction.first * direction.first + direction.second * direction.second);
+      direction.second /= sqrt(direction.first * direction.first + direction.second * direction.second);
+      for (int i = 0; i < std::min(length, (int)distances.size() - step); i += step)
+      {
+          std::pair<int, int> direction_i{};
+          direction_i.first = distances[distances.size()-1-i].first - distances[distances.size()-1-i-step].first;
+          direction_i.second = distances[distances.size()-1-i].second - distances[distances.size()-1-i-step].second;
+          direction_i.first /= sqrt(direction_i.first * direction_i.first + direction_i.second * direction_i.second);
+          direction_i.second /= sqrt(direction_i.first * direction_i.first + direction_i.second * direction_i.second);
+          float scalar = direction.first * direction_i.first + direction.second * direction_i.second;
+          if (std::abs(std::acos(scalar)) > angle)
+              return false;
+      }
+      return true;
+  } else return false;
 }
 
 std::pair<unsigned, unsigned> InfluenceMap::getRandomValuedPoint() const
