@@ -34,5 +34,8 @@ namespace params
   // Step in turns between points compared to see if the enemy is approaching
   extern int pathStep;
 
+  // ENABLE/DISABLE TRAINING PROCESSUS
+  extern bool trainingMode = true;
+
   void updateParams();
 }

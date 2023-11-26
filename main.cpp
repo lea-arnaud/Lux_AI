@@ -16,7 +16,8 @@
 
 int main()
 {
-    params::updateParams();
+    if (params::trainingMode)
+        params::updateParams();
     //std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
 
     statistics::GameStats{};

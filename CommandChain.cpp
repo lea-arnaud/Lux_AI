@@ -82,7 +82,8 @@ std::vector<TurnOrder> Commander::getTurnOrders()
         city->act();
     });
 
-    statistics::gameStats.printGameStats(m_globalBlackboard);
+    if (params::trainingMode)
+        statistics::gameStats.printGameStats(m_globalBlackboard);
 
     std::ranges::for_each(m_squads, [&, this](Squad &squad)
     {
