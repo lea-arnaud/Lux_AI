@@ -181,7 +181,7 @@ private:
 namespace influence_templates
 {
 
-constexpr InfluenceTemplate<3, 3> SHAPE_CROSS{ 2, 2, 1.0f,
+constexpr InfluenceTemplate<3, 3> SHAPE_CROSS{ 1, 1, 1.0f,
                                        [](float influence, float distance)
                                        {
                                          return distance <= 1 ? influence : 0;
