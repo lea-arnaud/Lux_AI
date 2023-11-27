@@ -16,6 +16,9 @@ struct BotObjective
     BUILD_CITY,
     FEED_CITY,
 	MAKE_ROAD,
+	RESEARCH,
+	CREATE_WORKER,
+	CREATE_CART
   } type;
 
   tileindex_t targetTile;
@@ -34,16 +37,28 @@ enum class Archetype
 class Squad
 {
 public:
+	Squad() : m_agents{}, m_agentsInCreation{}, m_agentsToCreate{} {};
 	Squad(std::vector<Bot *> bots, Archetype type, tileindex_t archetypeTargetTile)
-	  : m_agents(std::move(bots)), m_type(type), m_targetTile(archetypeTargetTile)
+		: m_agents(std::move(bots)), m_type(type), m_targetTile(archetypeTargetTile)
 	{}
 
 	std::vector<Bot *> &getAgents() { return m_agents; }
+	std::vector<std::pair<std::pair<int, int>, UnitType>> &getAgentsToCreate() { return m_agentsToCreate; }
+	std::vector<std::pair<Bot *, UnitType>> &getAgentsInCreation() { return m_agentsInCreation; }
 	Archetype getArchetype() const { return m_type; }
+	void setArchetype(Archetype a) { m_type = a; }
 	tileindex_t getTargetTile() const { return m_targetTile; }
+	void setTargetTile(tileindex_t tile) { m_targetTile = tile; }
+
+	void sendReinforcementsRequest(std::vector<Bot *> &cities, int &availableUnits);
+	void addCreatedAgents(const GameStateDiff &diff);
+
 
 private:
-	std::vector<Bot *> m_agents;
+	std::vector<Bot *> m_agents{};
+	//Bot + UnitType of agent in creation
+	std::vector<std::pair<Bot *, UnitType>> m_agentsInCreation{};
+	std::vector<std::pair<std::pair<int, int>, UnitType>> m_agentsToCreate{};
 	Archetype m_type;
 	tileindex_t m_targetTile;
 };
@@ -92,7 +107,7 @@ public:
 	Strategy() = default;
 
 	std::vector<EnemySquadInfo> getEnemyStance(const GameState &gameState);
-	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState);
+	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard);
 	std::vector<Squad> createSquads(const std::vector<SquadRequirement> &squadRequirements, GameState* gameState);
 
 private:
@@ -115,7 +130,8 @@ private:
 public:
 	Commander();
 	void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);
-	std::vector<TurnOrder> getTurnOrders();
+	void updateBlackBoard();
+	std::vector<TurnOrder> getTurnOrders(const GameStateDiff &diff);
 
 	bool shouldUpdateSquads(const GameStateDiff &diff, const std::vector<EnemySquadInfo> &newEnemyStance);
 	void rearrangeSquads(const GameStateDiff &diff);

@@ -474,11 +474,11 @@ std::shared_ptr<Task> behaviorCart()
 std::shared_ptr<Task> behaviorCity()
 {
   auto taskPlayCityProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  // TODO: Add ObjectiveType for city
-  //taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
-  //taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::CREATE_WORKER, /*taskLog("block tile", */ taskCityCreateWorker() /*)*/);
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::CREATE_CART, /*taskLog("block tile", */ taskCityCreateCart() /*)*/);
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::RESEARCH, /*taskLog("block tile", */ taskCityResearch() /*)*/);
 
-  /*return
+  return
     std::make_shared<Alternative>(
       testIsDawnOrNight(),
       taskCityResearch(),
@@ -486,13 +486,7 @@ std::shared_ptr<Task> behaviorCity()
         taskPlayCityProvidedObjective,
         taskLog("Agent had nothing to do!")
       )
-    );*/
-
-  return std::make_shared<Sequence>(
-    taskCityCreateWorker(),
-    taskCityCreateCart(),
-    taskCityResearch()
-  );
+    );
 }
   
 }

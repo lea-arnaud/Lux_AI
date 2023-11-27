@@ -26,13 +26,13 @@ Commander::Commander()
 void Commander::updateHighLevelObjectives(GameState *state, const GameStateDiff &diff)
 {
     m_gameState = state;
+    updateBlackBoard();
     rearrangeSquads(diff);
 }
 
-std::vector<TurnOrder> Commander::getTurnOrders()
+void Commander::updateBlackBoard()
 {
     static size_t turnNumber = 0;
-    std::vector<TurnOrder> orders;
 
     turnNumber++;
 
@@ -46,25 +46,27 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     std::ranges::transform(m_gameState->bots, std::back_inserter(agentsPositions),
       [this](const auto &bot) { return m_gameState->map.getTileIndex(*bot); });
     std::ranges::for_each(m_gameState->bots,
-      [&](const auto &bot) { if(bot->getType() != UnitType::CITY) nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
+      [&](const auto &bot) { if (bot->getType() != UnitType::CITY) nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
 
-    // collect agents that can act right now
-    std::vector<Bot *> availableCities{};
 
-    for (auto &city : m_gameState->bots) {
-        if (city->getType() == UnitType::CITY && city->getTeam() == Player::ALLY) {
+    for (auto &bot : m_gameState->bots) {
+        if (bot->getTeam() != Player::ALLY) continue;
+        if (bot->getType() == UnitType::CITY) {
             nbCities++;
-            if (city->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
-                availableCities.emplace_back(city.get());
+        }
+        if (bot->getType() == UnitType::WORKER) {
+            nbAgents++;
+            nbWorkers++;
+        }
+        if (bot->getType() == UnitType::CART) {
+            nbCities++;
+            nbCarts++;
         }
     }
-
-    lux::Annotate::sidetext("Number of available cities : " + std::to_string(availableCities.size()));
 
     m_globalBlackboard->insertData(bbn::GLOBAL_TURN, turnNumber);
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, m_gameState);
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &m_gameState->map);
-    m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
     m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, m_gameState->playerResearchPoints[Player::ALLY]);
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPositions);
     m_globalBlackboard->insertData(bbn::GLOBAL_NONCITY_POSITION, &nonCityPositions);
@@ -73,14 +75,59 @@ std::vector<TurnOrder> Commander::getTurnOrders()
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
     m_globalBlackboard->insertData(bbn::GLOBAL_CITY_COUNT, (int)m_gameState->citiesBot.size());
     m_globalBlackboard->insertData(bbn::GLOBAL_FRIENDLY_CITY_COUNT, nbCities);
+}
+
+std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
+{
+    std::vector<TurnOrder> orders;
+    std::vector<Bot *> friendlyCities{};
+    std::vector<Bot *> availableCities{};
+
+    int availableUnits = m_globalBlackboard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) * 2 - m_globalBlackboard->getData<int>(bbn::GLOBAL_AGENTS);
+
+    for (auto &city : m_gameState->bots) {
+        if (city->getType() == UnitType::CITY && city->getTeam() == Player::ALLY) {
+            friendlyCities.emplace_back(city.get());
+            if (city->getCooldown() < game_rules::MAX_ACT_COOLDOWN)
+                availableCities.emplace_back(city.get());
+        }
+    }
+
+    auto a = *m_globalBlackboard->getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
+
+    LOG(a[0]);
+
+    //For each squad...
+    std::for_each(m_squads.begin(), m_squads.end(), [&diff,&friendlyCities,&availableUnits](Squad &squad) {
+        //Seek created bots that were demanded
+        for (std::pair<Bot*, UnitType> cityProd : squad.getAgentsInCreation()) {
+            if (cityProd.first->getActedState()) {
+                for (Bot *bot : diff.newBots) {
+                    if (cityProd.first->getX() == bot->getX() && cityProd.first->getY() == bot->getY()) {
+                        squad.getAgents().push_back(bot);
+                        cityProd.first->release();
+                        break;
+                    }
+                }
+            }
+        }
+        //squad.addCreatedAgents(diff);
+        //And ask for ones that weren't created yet
+        squad.sendReinforcementsRequest(friendlyCities, availableUnits);
+    });
+
+    m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
 
     std::ranges::for_each(availableCities, [&, this](Bot *city) {
-        BotObjective objective{ BotObjective::ObjectiveType::BUILD_CITY, 0 };
+        BotObjective objective{ BotObjective::ObjectiveType::RESEARCH, 0 };
         city->getBlackboard().insertData(bbn::AGENT_SELF, city);
-        city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
+        if (!city->getReserveState())
+            city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         city->getBlackboard().setParentBoard(m_globalBlackboard);
         city->act();
     });
+
+    lux::Annotate::sidetext("Number of available cities : " + std::to_string(availableCities.size()));
 
     if (params::trainingMode)
         statistics::gameStats.printGameStats(m_globalBlackboard);
@@ -112,7 +159,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
             // TODO implement KILLER squad behavior with GOAP
             break;
         }
-        // this code is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
+        // TODO rework this code, it is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
         // otherwise, some bots WON'T EVER MOVE
 
         std::unordered_set<Bot *> playableBots{ squad.getAgents().begin(), squad.getAgents().end() };
@@ -182,7 +229,7 @@ void Commander::rearrangeSquads(const GameStateDiff &diff)
   auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
   if(m_previousEnemyStance.empty() || shouldUpdateSquads(diff, enemyStance)) {
     lux::Annotate::sidetext("! Updating squads");
-    auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState);
+    auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState, m_globalBlackboard);
     BENCHMARK_BEGIN(createSquads);
     m_squads = currentStrategy.createSquads(stanceToTake, m_gameState);
     m_previousEnemyStance = std::move(enemyStance);
@@ -383,7 +430,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 }
 
 //TODO : set and use positions in SquadRequirement
-std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState)
+std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard)
 {
     std::vector<SquadRequirement> squadRequirements{};
 
@@ -412,16 +459,19 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     // to settlers that target a tile near them)
     availableBots -= std::min(availableBots, 2ull);
 
+    int craftableBots = blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts;
+
     // sustain
-    for(size_t i = 0; i < allyCities.size() && availableBots > 2; i++) {
+    for(size_t i = 0; i < allyCities.size() && craftableBots > 2; i++) {
         auto &cc = allyCities[i];
         SquadRequirement sr{ 1,0,10,Archetype::FARMER, gameState.map.getTileIndex(cc.center_x, cc.center_y) };
         squadRequirements.emplace_back(sr);
         availableBots--;
+        craftableBots--;
     }
 
     //Retaliation
-    for (size_t i = 0; i < enemyStance.size() && (availableBots > 0 || availableCarts > 0); i++) {
+    for (size_t i = 0; i < enemyStance.size() && (availableBots > 0 || availableCarts > 0 || craftableBots > 0); i++) {
         SquadRequirement sr{};
         const EnemySquadInfo &enemySquad = enemyStance[i];
         switch (enemySquad.mission) {
@@ -436,6 +486,8 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
             squadRequirements.emplace_back(sr);
             priorities[Archetype::ROADMAKER] = priorities[Archetype::ROADMAKER]+1;
             availableBots--;
+            craftableBots--;
+
         } break; // ROADMAKER blocked by TROUBLEMAKER
         //case SETTLER:
         //    sr.botNb = x; // x + y = enough to surround the squad (4 for 1, 6 for 2...)
@@ -455,6 +507,7 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
             break;
         }
         availableBots -= sr.botNb;
+        craftableBots -= sr.botNb;
     }
 
     std::ranges::sort(squadRequirements, std::less{}, [](auto &sr) { return sr.priority; });
@@ -481,21 +534,25 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
             size_t botDistanceToMissionTarget = gameState->map.distanceBetween(botLocation, sr.missionTarget);
             bestBots.emplace(bot, botDistanceToMissionTarget);
         }
-        std::vector<Bot *> nSquad;
+        Squad nSquad{};
         for(size_t remainingWorkers = sr.botNb, remainingCarts = sr.cartNb; (remainingWorkers > 0 || remainingCarts > 0) && !bestBots.empty(); ) {
             Bot *availableBot = bestBots.top().first;
             bestBots.pop();
             if(availableBot->getType() == UnitType::CART && remainingCarts > 0) {
-                nSquad.push_back(availableBot);
+                nSquad.getAgents().push_back(availableBot);
                 unassignedBots.erase(availableBot);
                 remainingCarts--;
             } else if(availableBot->getType() == UnitType::WORKER && remainingWorkers > 0) {
-                nSquad.push_back(availableBot);
+                nSquad.getAgents().push_back(availableBot);
                 unassignedBots.erase(availableBot);
                 remainingWorkers--;
+            } else {
+                nSquad.getAgentsToCreate().push_back({ {gameState->map.getTilePosition(sr.missionTarget)}, availableBot->getType()});
             }
         }
-        newSquads.emplace_back(std::move(nSquad), sr.mission, sr.missionTarget);
+        nSquad.setArchetype(sr.mission);
+        nSquad.setTargetTile(sr.missionTarget);
+        newSquads.emplace_back(nSquad);
     }
 
     // assign remaining bots as settlers/farmers
@@ -515,4 +572,39 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
     }
 
     return newSquads;
+}
+
+void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &availableUnits)
+{
+    std::for_each(m_agentsToCreate.begin(), m_agentsToCreate.end(), [&, this, availableUnits, cities](std::pair<std::pair<int, int>, UnitType> bot) {
+        Bot *nearestCity = cities[0];
+        float nearestDistance = 100000000000.f;
+        for (Bot *city : cities) {
+            if (abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY()) < nearestDistance && !city->getReserveState()) {
+                nearestCity = city;
+                nearestDistance = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
+            }
+        }
+        if (bot.second == UnitType::WORKER)
+            nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, { BotObjective::ObjectiveType::CREATE_WORKER });
+        else
+            nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, { BotObjective::ObjectiveType::CREATE_CART });
+        nearestCity->reserve();
+        m_agentsInCreation.push_back(std::pair<Bot*,UnitType>(nearestCity, bot.second));
+    });
+}
+
+void Squad::addCreatedAgents(const GameStateDiff &diff)
+{
+    for (auto cityProd : m_agentsInCreation) {
+        if (cityProd.first->getActedState()) {
+            for (Bot *bot : diff.newBots) {
+                if (cityProd.first->getX() == bot->getX() && cityProd.first->getY() == bot->getY()) {
+                    m_agents.push_back(bot);
+                    cityProd.first->release();
+                    break;
+                }
+            }
+        }
+    }
 }

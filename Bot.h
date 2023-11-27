@@ -40,6 +40,13 @@ public:
   void setCoalAmount(int coal) { m_coal = coal; }
   void setUraniumAmount(int uranium) { m_uranium = uranium; }
 
+  void reserve() { isReserved = true; }
+  void acted() { hasCreated = true; }
+  void release() { isReserved = false; hasCreated = false; }
+
+  bool getReserveState() { return isReserved; }
+  bool getActedState() { return hasCreated; }
+
   Blackboard &getBlackboard() { return *m_blackboard; }
   void act() { m_behaviorTree->run(m_blackboard); }
 
@@ -57,6 +64,9 @@ private:
   player_t    m_team;
   std::shared_ptr<Blackboard>    m_blackboard;
   std::shared_ptr<BasicBehavior> m_behaviorTree;
+  // city only, helps optimization on unit creation
+  bool isReserved = false;
+  bool hasCreated = false;
 };
 
 #endif

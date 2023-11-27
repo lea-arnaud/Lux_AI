@@ -171,7 +171,7 @@ namespace kit
         BENCHMARK_END(updateHighLevelObjectives);
         // act
         BENCHMARK_BEGIN(getTurnOrders);
-        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders();
+        std::vector<TurnOrder> commanderOrders = m_commander.getTurnOrders(m_gameStateDiff);
         BENCHMARK_END(getTurnOrders);
         auto ordersEnd = std::ranges::remove_if(commanderOrders, [](TurnOrder &t) { return t.type == TurnOrder::DO_NOTHING; }).begin();
         std::transform(commanderOrders.begin(), ordersEnd, std::back_inserter(orders), [&](TurnOrder &o) { return o.getAsString(m_gameState.map); });
