@@ -43,3 +43,49 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
       citiesInfluence.setValueAtIndex(index, -100.0f);
     });
 }
+
+//GOAP
+
+void GameState::setVariable(const int var_id, const bool value)
+{
+    vars_[var_id] = value;
+}
+
+bool GameState::getVariable(const int var_id) const
+{
+    return vars_.at(var_id);
+}
+
+
+bool GameState::operator==(const GameState &other) const
+{
+    return (vars_ == other.vars_);
+}
+
+bool GameState::meetsGoal(const GameState &goal_state) const
+{
+    for (const auto &kv : goal_state.vars_) {
+        try {
+            if (vars_.at(kv.first) != kv.second) {
+                return false;
+            }
+        } catch (const std::out_of_range &) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int GameState::distanceTo(const GameState &goal_state) const
+{
+    int result = 0;
+
+    for (const auto &kv : goal_state.vars_) {
+        auto itr = vars_.find(kv.first);
+        if (itr == end(vars_) || itr->second != kv.second) {
+            ++result;
+        }
+    }
+
+    return result;
+}

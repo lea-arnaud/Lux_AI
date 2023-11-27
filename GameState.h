@@ -34,6 +34,18 @@ struct GameState
   std::optional<const Bot*> getEntityAt(tileindex_t tile) const { auto [x, y] = map.getTilePosition(tile); return getEntityAt(x, y); }
   std::optional<const Bot*> getEntityAt(int x, int y) const;
   void computeInfluence(const GameStateDiff &gameStateDiff);
+
+  // For GOAP planner
+
+  float priority_; // useful if this is a goal state, to distinguish from other possible goals
+  std::string name_; // the human-readable name of the state
+  std::map<int, bool> vars_; // the variables that in aggregate describe a worldstate
+
+  void setVariable(const int var_id, const bool value);
+  bool getVariable(const int var_id) const;
+  bool meetsGoal(const GameState &goal_state) const;
+  int distanceTo(const GameState &goal_state) const;
+  bool operator==(const GameState &other) const;
 };
 
 #endif
