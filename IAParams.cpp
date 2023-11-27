@@ -37,7 +37,7 @@ float cityCoverageNeeded = 50.f;
 int pathStep = 5;
 
 // ENABLE/DISABLE TRAINING PROCESSUS
-bool trainingMode = false;
+bool trainingMode = true;
 
 void updateParams()
 {
