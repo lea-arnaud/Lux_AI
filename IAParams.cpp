@@ -36,6 +36,9 @@ float cityCoverageNeeded = 50.f;
 // Step in turns between points compared to see if the enemy is approaching
 int pathStep = 5;
 
+// ENABLE/DISABLE TRAINING PROCESSUS
+bool trainingMode = false;
+
 void updateParams()
 {
     std::ifstream paramFile{};

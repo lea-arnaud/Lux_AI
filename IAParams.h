@@ -35,7 +35,7 @@ namespace params
   extern int pathStep;
 
   // ENABLE/DISABLE TRAINING PROCESSUS
-  extern bool trainingMode = true;
+  extern bool trainingMode;
 
   void updateParams();
 }

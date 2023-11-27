@@ -20,7 +20,7 @@ void InfluenceMap::setSize(int width, int height)
   m_map.resize(width * height, 0.0f);
 }
 
-void InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float), int range = 32)
+InfluenceMap& InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float), int range = 32)
 {
   auto [x1, y1] = getCoord(index);
 

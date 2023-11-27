@@ -69,7 +69,7 @@ public:
 
   void clear() { std::ranges::fill(m_map, 0.0f); }
 
-  InfluenceMap& propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float));
+  InfluenceMap& propagate(tileindex_t index, float initialInfluence, float (*propagationFunction)(float, float), int range);
   InfluenceMap& setValueAtIndex(tileindex_t index, float value);
   InfluenceMap& addValueAtIndex(tileindex_t index, float value);
   InfluenceMap& multiplyValueAtIndex(tileindex_t index, float value);
@@ -118,12 +118,6 @@ public:
 
   tileindex_t getHighestPoint() const;
   std::vector<tileindex_t> getNHighestPoints(int n) const;
-
-  template <unsigned int W, unsigned int H>
-  void addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f);
-
-  template <unsigned int W, unsigned int H>
-  void multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f);
 
   // Use to compare maps of similar size
   float getSimilarity(const InfluenceMap &map2, float similarityTolerance = 1.f) const;
@@ -183,38 +177,6 @@ private:
   }
 
 };
-
-template <unsigned W, unsigned H>
-void InfluenceMap::addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H>& influenceTemplate, float weight)
-{
-  int deltaX = index % m_width - W / 2;
-  int deltaY = index / m_width - H / 2;
-
-  for (int i = 0; i < W * H; ++i) {
-    int x = i % W + deltaX;
-    int y = i / W + deltaY;
-
-    if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
-
-    m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
-  }
-}
-
-template <unsigned W, unsigned H>
-void InfluenceMap::multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight)
-{
-  int deltaX = index % m_width - W / 2;
-  int deltaY = index / m_width - H / 2;
-
-  for (int i = 0; i < W * H; ++i) {
-    int x = i % W + deltaX;
-    int y = i / W + deltaY;
-
-    if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
-
-    m_map[getIndex(x, y)] *= influenceTemplate.m_map[i] * weight;
-  }
-}
 
 namespace influence_templates
 {
