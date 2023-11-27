@@ -127,6 +127,12 @@ private:
 
 	Strategy currentStrategy;
 
+	// fields that are passed in the global black board by raw pointers that must be kept alive
+	struct {
+	  std::vector<tileindex_t> agentsPositions;
+	  std::vector<tileindex_t> nonCityPositions;
+	} m_blackboardKeepAlive;
+
 public:
 	Commander();
 	void updateHighLevelObjectives(GameState *state, const GameStateDiff &diff);

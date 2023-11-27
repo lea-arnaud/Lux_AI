@@ -41,13 +41,12 @@ void Commander::updateBlackBoard()
     int nbCarts = 0;
     int nbCities = 0;
 
-    std::vector<tileindex_t> agentsPositions;
-    std::vector<tileindex_t> nonCityPositions;
-    std::ranges::transform(m_gameState->bots, std::back_inserter(agentsPositions),
+    m_blackboardKeepAlive.agentsPositions.clear();
+    m_blackboardKeepAlive.nonCityPositions.clear();
+    std::ranges::transform(m_gameState->bots, std::back_inserter(m_blackboardKeepAlive.agentsPositions),
       [this](const auto &bot) { return m_gameState->map.getTileIndex(*bot); });
     std::ranges::for_each(m_gameState->bots,
-      [&](const auto &bot) { if (bot->getType() != UnitType::CITY) nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
-
+      [&](const auto &bot) { if (bot->getType() != UnitType::CITY) m_blackboardKeepAlive.nonCityPositions.push_back(m_gameState->map.getTileIndex(*bot)); });
 
     for (auto &bot : m_gameState->bots) {
         if (bot->getTeam() != Player::ALLY) continue;
@@ -68,8 +67,8 @@ void Commander::updateBlackBoard()
     m_globalBlackboard->insertData(bbn::GLOBAL_GAME_STATE, m_gameState);
     m_globalBlackboard->insertData(bbn::GLOBAL_MAP, &m_gameState->map);
     m_globalBlackboard->insertData(bbn::GLOBAL_TEAM_RESEARCH_POINT, m_gameState->playerResearchPoints[Player::ALLY]);
-    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &agentsPositions);
-    m_globalBlackboard->insertData(bbn::GLOBAL_NONCITY_POSITION, &nonCityPositions);
+    m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS_POSITION, &m_blackboardKeepAlive.agentsPositions);
+    m_globalBlackboard->insertData(bbn::GLOBAL_NONCITY_POSITION, &m_blackboardKeepAlive.nonCityPositions);
     m_globalBlackboard->insertData(bbn::GLOBAL_AGENTS, nbAgents);
     m_globalBlackboard->insertData(bbn::GLOBAL_WORKERS, nbWorkers);
     m_globalBlackboard->insertData(bbn::GLOBAL_CARTS, nbCarts);
@@ -93,12 +92,8 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         }
     }
 
-    auto a = *m_globalBlackboard->getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
-
-    LOG(a[0]);
-
     //For each squad...
-    std::for_each(m_squads.begin(), m_squads.end(), [&diff,&friendlyCities,&availableUnits](Squad &squad) {
+    ranges::for_each(m_squads, [&diff,&friendlyCities,&availableUnits](Squad &squad) {
         //Seek created bots that were demanded
         for (std::pair<Bot*, UnitType> cityProd : squad.getAgentsInCreation()) {
             if (cityProd.first->getActedState()) {
