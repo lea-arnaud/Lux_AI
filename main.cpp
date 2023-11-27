@@ -6,13 +6,22 @@
 #include <fstream>
 #include <vector>
 
+#include "IAParams.h"
 #include "Benchmarking.h"
 #include "Log.h"
 #include "lux/annotate.hpp"
+#include "Statistics.h"
+
+#include <stdio.h>
 
 int main()
 {
+    if (params::trainingMode)
+        params::updateParams();
     //std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
+
+    statistics::GameStats{};
+
     int playedTurns = 360; // set to only play up to that turn
     if (playedTurns != 360) std::cerr << "WITH MAX TURN PLAYED " << playedTurns << std::endl;
 
@@ -22,14 +31,30 @@ int main()
 
     int currentTurn = 0;
 
+    #ifdef BENCHMARKING
+    std::string benchmarkFile = "..\\..\\benchmark" + std::to_string(agent.getId()) + ".txt";
+    std::ofstream{ benchmarkFile };
+    #endif
+
     try {
         while (true)
         {
             currentTurn++;
+            
+            #ifdef BENCHMARKING
+            benchmark::logs.str("");
             benchmark::logs << "Turn " << currentTurn << "\n";
+            #endif
 
             BENCHMARK_BEGIN(TurnTotal);
+            MULTIBENCHMARK_BEGIN(Astar);
+            MULTIBENCHMARK_BEGIN(AgentBT);
+            MULTIBENCHMARK_BEGIN(getBestCityBuildingLocation);
+            MULTIBENCHMARK_BEGIN(getBestCityFeedingLocation);
+
+            BENCHMARK_BEGIN(ExtractGameState);
             agent.ExtractGameState();
+            BENCHMARK_END(ExtractGameState);
 
             std::vector<std::string> orders;
             lux::Annotate::s_logs.swap(orders); // not the cleanest, but for logs this will do
@@ -45,10 +70,16 @@ int main()
             
             // end turn
             kit::end_turn();
+            MULTIBENCHMARK_END(AgentBT);
+            MULTIBENCHMARK_END(Astar);
+            MULTIBENCHMARK_END(getBestCityBuildingLocation);
+            MULTIBENCHMARK_END(getBestCityFeedingLocation);
             BENCHMARK_END(TurnTotal);
 
-            // suboptimal
-            std::ofstream{ "..\\..\\benchmark" + std::to_string(agent.getId()) + ".txt" } << benchmark::logs.str() << std::endl;
+            #ifdef BENCHMARKING
+            if(BENCHMARK_DURATION(TurnTotal) > 3.) // only log turns that overshoot 3ms
+              std::ofstream{ benchmarkFile, std::ios::app } << benchmark::logs.str() << std::endl;
+            #endif
         }
     } catch (const std::runtime_error &e) {
         std::cerr << "Fatal error: " << e.what() << std::endl;

@@ -209,16 +209,6 @@ public:
 	}
 };
 
-class BlackboardManager : public Decorator {
-	std::shared_ptr<Blackboard> newBlackboard;
-
-	TaskResult run(const std::shared_ptr<Blackboard> &blackboard) override {
-		newBlackboard = { blackboard }; // FIX this is a pointer copy, was it supposed to be a copy of the blackboard ?
-		                                // also this is not thread-safe, is there a reason why newBlackboard is an instance member ?
-		return child->run(newBlackboard);
-	}
-};
-
 class BasicBehavior {
 	std::shared_ptr<Task> rootTask;
 

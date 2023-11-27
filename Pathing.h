@@ -16,7 +16,8 @@ tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameStat
 tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState, const std::vector<tileindex_t> &occupiedTiles);
 
 std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const GameState *gameState, int n);
-
+std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const GameState *gameState, int n);
+std::vector<tileindex_t> getManyExpansionLocations(const Bot *bot, const GameState *gameState, int n);
 }
 
 #endif

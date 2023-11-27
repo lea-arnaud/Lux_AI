@@ -1,0 +1,11 @@
+pathLength=75
+
+similarityPercentage=40
+similarityTolerance=3
+
+resourceCoverage=1
+cityCoverage=50
+
+pathStep=3
+
+fileName=pL_Tests_13_1000

@@ -52,6 +52,8 @@ SET( AIBOT_HEADERS
 	GameRules.h
 	AStar.h
 	InfluenceMap.h
+	IAParameters.h
+	Statistics.h
 	Benchmarking.h
 )
 
@@ -71,6 +73,7 @@ SET( AIBOT_SRC
 	TurnOrder.cpp
 	InfluenceMap.cpp
 	Benchmarking.cpp
+	IAParams.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")

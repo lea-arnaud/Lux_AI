@@ -62,6 +62,10 @@ def read_to_string(file_path):
        
 if __name__ == '__main__':
     os.system('')
+    
+    if len(sys.argv) > 1:
+        seeds = [int(sys.argv[1])]
+    
     print('Using bots\033[33m', *bots, '\033[0m')
     print('Config:', *map(lambda x: (x, eval(x)), ['no_timeout', 'cpu_cores', 'silent', 'verbose']))
     print(f'Running on {len(seeds)=}')

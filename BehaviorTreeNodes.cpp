@@ -1,5 +1,6 @@
 #include "BehaviorTreeNodes.h"
 
+#include "Benchmarking.h"
 #include "Pathing.h"
 #include "CommandChain.h"
 #include "lux/annotate.hpp"
@@ -31,23 +32,11 @@ std::shared_ptr<Task> testIsAgentFullOfResources()
   });
 }
 
-std::shared_ptr<Task> testHasTeamEnoughAgents()
-{
-  return std::make_shared<Test>([](Blackboard& bb) {
-    return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 8;
-  });
-}
-std::shared_ptr<Task> testHasTeamEnoughWorkers()
-{
-    return std::make_shared<Test>([](Blackboard &bb) {
-        return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 5;
-    });
-}
 std::shared_ptr<Task> testHasTeamEnoughCarts()
 {
-    return std::make_shared<Test>([](Blackboard &bb) {
-        return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 1;
-    });
+  return std::make_shared<Test>([](Blackboard &bb) {
+    return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 1;
+  });
 }
 
 std::shared_ptr<Task> testHasTeamReachedAgentCapacity()
@@ -118,7 +107,7 @@ std::shared_ptr<Task> taskPlayAgentTurn(std::function<TurnOrder(Blackboard &bb)>
 std::shared_ptr<Task> taskMoveTo(
   std::function<tileindex_t(Blackboard &)> &&goalFinder,
   std::function<bool(Blackboard &)> &&goalValidityChecker,
-  pathflags_t pathFlags,
+  std::function<pathflags_t(Blackboard &)> &&pathFlags,
   const std::string &pathtype)
 {
   auto followPathTask =
@@ -141,15 +130,18 @@ std::shared_ptr<Task> taskMoveTo(
 
   auto computePathTask = 
     std::make_shared<ComplexAction>([pathFlags](Blackboard &bb) {
-      const Bot* bot = bb.getData<Bot*>(bbn::AGENT_SELF);
+      const Bot *bot = bb.getData<Bot*>(bbn::AGENT_SELF);
       const Map *map = bb.getData<Map*>(bbn::GLOBAL_MAP);
       tileindex_t goalIndex = bb.getData<tileindex_t>(bbn::AGENT_PATHFINDING_GOAL);
       auto occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_AGENTS_POSITION);
 
-      std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex, *occupiedTiles, pathFlags);
+      MULTIBENCHMARK_LAPBEGIN(Astar);
+      std::vector<tileindex_t> path = aStar(*map, *bot, goalIndex, *occupiedTiles, pathFlags(bb));
+      MULTIBENCHMARK_LAPEND(Astar);
 
       if (path.empty()) {
-        LOG(bot->getId() << ": could not find a valid path to its target tile " << map->getTilePosition(goalIndex) << " from " << bot->getX() << "," << bot->getY());
+        // TODO relax constraints and find another path
+        //LOG(bot->getId() << ": could not find a valid path to its target tile " << map->getTilePosition(goalIndex) << " from " << bot->getX() << "," << bot->getY());
         return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
       }
       path.pop_back();
@@ -241,7 +233,6 @@ std::shared_ptr<Task> taskMoveTo(
         // ... if the goal is no longer valid...
         std::make_shared<Sequence>(
           // compute a new goal, path and follow it
-          //taskLog("goal invalid"),
           computeGoalTask,
           computePathTask,
           followPathTask
@@ -267,19 +258,24 @@ GoalValidityChecker adaptGoalValidityChecker(SimpleGoalValidityChecker simpleChe
   };
 }
 
+PathFlagsSupplier adaptFlagsSupplier(pathflags_t flags) {
+  return [flags](Blackboard &bb) { return flags; };
+}
+
+
 std::shared_ptr<Task> taskMoveTo(SimpleGoalSupplier &&goalSupplier, SimpleGoalValidityChecker &&goalValidityChecker, pathflags_t pathFlags, const std::string &pathtype)
 {
-  return taskMoveTo(adaptGoalSupplier(std::move(goalSupplier)), adaptGoalValidityChecker(std::move(goalValidityChecker)), pathFlags, pathtype);
+  return taskMoveTo(
+    adaptGoalSupplier(std::move(goalSupplier)),
+    adaptGoalValidityChecker(std::move(goalValidityChecker)),
+    adaptFlagsSupplier(pathFlags),
+    pathtype);
 }
 
 std::shared_ptr<Task> taskFetchResources(float distanceWeight)
 {
   auto testIsValidResourceFetchingLocation = [](const Bot *bot, const Map *map, tileindex_t goal) {
-    if (map->tileAt(goal).getType() == TileType::RESOURCE) return true;
-    auto neighbours = map->getValidNeighbours(goal);
-    return std::ranges::any_of(neighbours, [=](tileindex_t t) {
-      return map->tileAt(t).getType() == TileType::RESOURCE;
-    });
+    return map->hasAdjacentResources(goal);
   };
 
   auto goalFinder = [distanceWeight](const Bot *bot, const GameState *gameState) -> tileindex_t {
@@ -289,7 +285,7 @@ std::shared_ptr<Task> taskFetchResources(float distanceWeight)
   return std::make_shared<Selector>(
     testIsAgentFullOfResources(),
     std::make_shared<Sequence>(
-      taskMoveTo(goalFinder, testIsValidResourceFetchingLocation, PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES, "resource-fetching-site"),
+      taskMoveTo(goalFinder, testIsValidResourceFetchingLocation, PathFlags::NONE, "resource-fetching-site"),
       taskLog("Collecting resources"),
       taskPlayAgentTurn([](const Bot *bot) { return TurnOrder{ TurnOrder::COLLECT_RESOURCES, bot }; })
     )
@@ -316,7 +312,7 @@ std::shared_ptr<Task> taskBuildCity()
     taskMoveTo(
       goalSupplierFromAgentObjective(),
       testIsPathGoalValidConstructionTile,
-      PathFlags::NONE,
+      adaptFlagsSupplier(PathFlags::CANNOT_MOVE_THROUGH_FRIENDLY_CITIES),
       "city-construction-site"),
     taskPlayAgentTurn([](const Bot *bot) { return TurnOrder{ TurnOrder::BUILD_CITY, bot }; })
   );
@@ -335,7 +331,7 @@ std::shared_ptr<Task> taskFeedCity()
     taskMoveTo(
       goalSupplierFromAgentObjective(),
       testIsGoalValidFriendlyCityTile,
-      PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES, // currently there is no garanty that the right city is fed
+      adaptFlagsSupplier(PathFlags::NONE), // currently there is no garanty that the right city is fed
       "city-supplying-site")
   );
 }
@@ -350,13 +346,13 @@ std::shared_ptr<Task> taskMoveToBlockTile() {
   return taskMoveTo(
     goalSupplierFromAgentObjective(),
     isValidBlockingTile,
-    PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES,
+    adaptFlagsSupplier(PathFlags::NONE),
     "go-block-tile-strategy");
 }
 
 std::shared_ptr<Task> taskMoveToBestTileAtNight() {
   SimpleGoalValidityChecker testIsGoalValidFriendlyCityTile = [](const Bot *bot, const Map *map, tileindex_t goal) {
-    //return map->tileAt(goal).getType() == TileType::ALLY_CITY;
+    // the path must be refreshed every turn
     return false;
   };
 
@@ -367,10 +363,17 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
     return pathing::getBestNightTimeLocation(bot, gameState, *occupiedTiles);
   };
 
+  PathFlagsSupplier flagsSupplier = [](Blackboard &bb) -> pathflags_t {
+    const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+    return bot->getCoalAmount() > 0 || bot->getUraniumAmount() > 0 || bot->getWoodAmount() > 0
+      ? PathFlags::NONE
+      : PathFlags::MUST_BE_NIGHT_SURVIVABLE_TILE;
+  };
+
   return taskMoveTo(
     std::move(goalSupplier),
     adaptGoalValidityChecker(testIsGoalValidFriendlyCityTile),
-    PathFlags::CAN_MOVE_THROUGH_FRIENDLY_CITIES,
+    std::move(flagsSupplier),
     "closest-city");
 }
 
@@ -378,7 +381,6 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
 std::shared_ptr<Task> taskCityCreateWorker()
 {
   return std::make_shared<Selector>(
-    testHasTeamEnoughWorkers(),
     testHasTeamReachedAgentCapacity(),
     taskPlayAgentTurn([](Blackboard &bb) {
       const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
@@ -392,20 +394,18 @@ std::shared_ptr<Task> taskCityCreateWorker()
 // Create a cart if there is less than 1 cart
 std::shared_ptr<Task> taskCityCreateCart()
 {
-    return std::make_shared<Selector>(
-      testHasTeamEnoughCarts(),
-      testHasTeamReachedAgentCapacity(),
-      taskLog("Creating cart", TaskResult::FAILURE),
-      taskPlayAgentTurn([](Blackboard &bb) {
-        const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-        bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
-        bb.updateData(bbn::GLOBAL_WORKERS, bb.getData<int>(bbn::GLOBAL_WORKERS) + 1);
-        return TurnOrder{ TurnOrder::CREATE_CART, bot };
+  return std::make_shared<Selector>(
+    testHasTeamEnoughCarts(),
+    testHasTeamReachedAgentCapacity(),
+    taskLog("Creating cart", TaskResult::FAILURE),
+    taskPlayAgentTurn([](Blackboard &bb) {
+      const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
+      bb.updateData(bbn::GLOBAL_AGENTS, bb.getData<int>(bbn::GLOBAL_AGENTS) + 1);
+      bb.updateData(bbn::GLOBAL_WORKERS, bb.getData<int>(bbn::GLOBAL_WORKERS) + 1);
+      return TurnOrder{ TurnOrder::CREATE_CART, bot };
     })
-    );
+  );
 }
-
-
 
 std::shared_ptr<Task> taskCityResearch()
 {
@@ -439,7 +439,7 @@ public:
 std::shared_ptr<Task> behaviorWorker()
 {
   auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    taskLog("build city", taskBuildCity()      ));
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::BUILD_CITY,    taskLog("build city", taskBuildCity()));
   taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::FEED_CITY,     taskLog("feed city",  taskFeedCity()       ));
   taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskLog("block tile", taskMoveToBlockTile()));
 
@@ -456,19 +456,19 @@ std::shared_ptr<Task> behaviorWorker()
 
 std::shared_ptr<Task> behaviorCart()
 {
-    auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-    taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
-    taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
 
-    return
-        std::make_shared<Alternative>(
-          testIsDawnOrNight(),
-          taskMoveToBestTileAtNight(),
-          std::make_shared<Sequence>(
-              taskPlaySquadProvidedObjective,
-              taskLog("Agent had nothing to do!")
-          )
-        );
+  return
+    std::make_shared<Alternative>(
+      testIsDawnOrNight(),
+      taskMoveToBestTileAtNight(),
+      std::make_shared<Sequence>(
+          taskPlaySquadProvidedObjective,
+          taskLog("Agent had nothing to do!")
+      )
+    );
 }
 
 std::shared_ptr<Task> behaviorCity()
