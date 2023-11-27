@@ -53,6 +53,9 @@ SET( AIBOT_HEADERS
 	AStar.h
 	InfluenceMap.h
 	Benchmarking.h
+	Action.h
+	Node.h
+	Planner.h
 )
 
 SET( AIBOT_SRC 
@@ -71,6 +74,9 @@ SET( AIBOT_SRC
 	TurnOrder.cpp
 	InfluenceMap.cpp
 	Benchmarking.cpp
+	Action.cpp
+	Node.cpp
+	Planner.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")
