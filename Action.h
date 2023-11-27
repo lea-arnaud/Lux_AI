@@ -9,8 +9,8 @@ namespace goap
 
 class Action
 {
-    std::string name;
-    int cost;
+    std::string name_;
+    int cost_;
 
     std::unordered_map<int, bool> preconditions;
     std::unordered_map<int, bool> effects;
@@ -31,6 +31,7 @@ public:
     {
         effects[key] = value;
     }
+    int getCost() const { return cost_; }
 };
 
 }
