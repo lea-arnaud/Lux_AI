@@ -154,7 +154,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
     std::ranges::for_each(m_squads, [&, this](Squad &squad)
     {
         int squadSize = static_cast<int>(squad.getAgents().size());
-        if (squadSize > 0) 
+        if (squadSize > 0 || !squad.getOrderGiven())
         {
             std::vector<tileindex_t> targetTiles{};
             BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
@@ -163,6 +163,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
                 break;
             case Archetype::SETTLER:
+                squad.setOrderGiven(true);
                 targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squadSize);
                 break;
             case Archetype::FARMER:

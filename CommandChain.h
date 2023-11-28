@@ -57,6 +57,9 @@ public:
 	void sendReinforcementsRequest(std::vector<Bot *> &cities, int &availableUnits);
 	void addCreatedAgents(const GameStateDiff &diff);
 
+	void setOrderGiven(bool b) { orderGiven = b; }
+	bool getOrderGiven() { return orderGiven; }
+
 
 private:
 	std::vector<Bot *> m_agents{};
@@ -65,6 +68,7 @@ private:
 	std::vector<std::pair<std::pair<int, int>, UnitType>> m_agentsToCreate{};
 	Archetype m_type;
 	tileindex_t m_targetTile;
+	bool orderGiven = false;
 };
 
 struct SquadRequirement
