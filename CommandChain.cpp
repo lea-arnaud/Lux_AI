@@ -153,25 +153,26 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
 
     std::ranges::for_each(m_squads, [&, this](Squad &squad)
     {
-        if (squad.getAgents().size() > 0) 
+        int squadSize = static_cast<int>(squad.getAgents().size());
+        if (squadSize > 0) 
         {
             std::vector<tileindex_t> targetTiles{};
             BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
             switch (squad.getArchetype()) {
             case Archetype::CITIZEN:
-                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
                 break;
             case Archetype::SETTLER:
-                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squadSize);
                 break;
             case Archetype::FARMER:
                 mission = BotObjective::ObjectiveType::FEED_CITY;
                 for (auto bot : squad.getAgents())
                     targetTiles.push_back(squad.getTargetTile());
-                //targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                //targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, agentCount);
                 break;
             case Archetype::TROUBLEMAKER:
-                targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squadSize);
                 mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
                 break;
             case Archetype::ROADMAKER:
@@ -195,11 +196,12 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 }
                 if (playableBots.empty()) break;
                 Bot *nearestBot = nullptr;
-                unsigned int nearestDist = INT_MAX;
+                size_t nearestDist = std::numeric_limits<size_t>::max();
                 for (Bot *bot : playableBots) {
-                    if (m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) < nearestDist) {
+                    size_t botDist = m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY()));
+                    if (botDist < nearestDist) {
                         nearestBot = bot;
-                        nearestDist = m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY()));
+                        nearestDist = botDist;
                     }
                 }
                 playableBots.erase(nearestBot);
@@ -253,18 +255,12 @@ bool Commander::shouldUpdateSquads(const GameStateDiff &diff, const std::vector<
 
 void Commander::rearrangeSquads(const GameStateDiff &diff)
 {
-  BENCHMARK_BEGIN(getEnemyStance);
   auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
-  BENCHMARK_END(getEnemyStance);
   if(m_previousEnemyStance.empty() || shouldUpdateSquads(diff, enemyStance)) {
     lux::Annotate::sidetext("! Updating squads");
-    BENCHMARK_BEGIN(adaptToEnemy);
     auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState, m_globalBlackboard);
-    BENCHMARK_END(adaptToEnemy);
-    BENCHMARK_BEGIN(createSquads);
     m_squads = currentStrategy.createSquads(stanceToTake, m_gameState);
     m_previousEnemyStance = std::move(enemyStance);
-    BENCHMARK_END(createSquads);
   }
 }
 
@@ -648,13 +644,13 @@ void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &available
     std::vector<std::pair<std::pair<int, int>, UnitType>> notReservedBots{};
     for (auto bot : m_agentsToCreate) {
         Bot *nearestCity = cities[0];
-        float nearestDistance = std::numeric_limits<unsigned int>::max();
+        unsigned int nearestDistance = std::numeric_limits<unsigned int>::max();
         bool foundCity = false;
         for (Bot *city : cities) {
             unsigned int botToCityDist = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
             if (botToCityDist < nearestDistance && !city->getReserveState()) {
                 nearestCity = city;
-                nearestDistance = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
+                nearestDistance = botToCityDist;
                 foundCity = true;
             }
         }
@@ -664,12 +660,11 @@ void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &available
             else
                 nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_CART, 0 });
             nearestCity->reserve();
-            m_agentsInCreation.push_back(std::pair<Bot *, UnitType>(nearestCity, bot.second));
+            m_agentsInCreation.emplace_back(nearestCity, bot.second);
         } else {
-            std::pair<std::pair<int, int>, UnitType> botCopy{ bot };
-            notReservedBots.push_back(botCopy);
+            notReservedBots.push_back(bot);
         }
-    };
+    }
     m_agentsToCreate = notReservedBots;
 }
 

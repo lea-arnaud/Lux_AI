@@ -506,7 +506,7 @@ std::shared_ptr<Task> behaviorCity()
       taskCityResearch(),
       std::make_shared<Sequence>(
         taskPlayCityProvidedObjective,
-        taskLog("City had nothing to do!")
+        taskCityResearch()
       )
     );
 }
