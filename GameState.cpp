@@ -48,12 +48,14 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
 bool GameState::shouldExpand()
 {
   // TODO: should take the agent into consideration and the ennemy
-  
+  constexpr float TOTAL_RESOURCES_PERCENT = 0.75;
+
   // calculate the resources needed to survive till the end
   size_t nightDuration = (360 - currentTurn) / 4; // 1/4 tu temps est la nuit
   float resourceNeededToSurvive = resourcesNeeded * nightDuration;
 
-  if (resourceNeededToSurvive > 0.75 * (resourcesRemaining + resourcesOwned)) return false;
+  if (resourceNeededToSurvive > TOTAL_RESOURCES_PERCENT * (resourcesRemaining + resourcesOwned)) 
+    return false;
 
   return true;
 }
