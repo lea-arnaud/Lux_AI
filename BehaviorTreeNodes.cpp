@@ -249,7 +249,7 @@ GoalSupplier adaptGoalSupplier(SimpleGoalSupplier &&simpleSupplier) {
   };
 }
 
-GoalValidityChecker adaptGoalValidityChecker(SimpleGoalValidityChecker simpleChecker) {
+GoalValidityChecker adaptGoalValidityChecker(SimpleGoalValidityChecker &&simpleChecker) {
   return [simpleChecker = std::move(simpleChecker)](Blackboard &bb) -> bool {
     const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
     const Map *map = bb.getData<Map *>(bbn::GLOBAL_MAP);
@@ -350,6 +350,29 @@ std::shared_ptr<Task> taskMoveToBlockTile() {
     "go-block-tile-strategy");
 }
 
+std::shared_ptr<Task> taskMoveToCreateRoad() {
+  auto testAgentReachedDestination = [](Blackboard &bb) -> bool {
+    tileindex_t currentTarget = bb.getData<BotObjective&>(bbn::AGENT_OBJECTIVE).targetTile;
+    tileindex_t currentPosition = bb.getData<Map *>(bbn::GLOBAL_MAP)->getTileIndex(*bb.getData<Bot *>(bbn::AGENT_SELF));
+    return currentPosition != currentTarget;
+  };
+
+  return std::make_shared<Sequence>(
+    taskMoveTo(
+      goalSupplierFromAgentObjective(),
+      testAgentReachedDestination,
+      adaptFlagsSupplier(PathFlags::NONE),
+      "make-road-strategy"
+    ),
+    // when the destination has been reached, we swap the target and return tile
+    // that way the bot will go back and forth between those two
+    std::make_shared<SimpleAction>([](Blackboard &bb) {
+      BotObjective &currentObjective = bb.getData<BotObjective&>(bbn::AGENT_OBJECTIVE);
+      std::swap(currentObjective.targetTile, currentObjective.returnTile);
+    })
+  );
+}
+
 std::shared_ptr<Task> taskMoveToBestTileAtNight() {
   SimpleGoalValidityChecker testIsGoalValidFriendlyCityTile = [](const Bot *bot, const Map *map, tileindex_t goal) {
     // the path must be refreshed every turn
@@ -372,12 +395,11 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
 
   return taskMoveTo(
     std::move(goalSupplier),
-    adaptGoalValidityChecker(testIsGoalValidFriendlyCityTile),
+    adaptGoalValidityChecker(std::move(testIsGoalValidFriendlyCityTile)),
     std::move(flagsSupplier),
     "closest-city");
 }
 
-// The city create a worker if there is less than 6 workers
 std::shared_ptr<Task> taskCityCreateWorker()
 {
   return std::make_shared<Selector>(
@@ -457,8 +479,8 @@ std::shared_ptr<Task> behaviorWorker()
 std::shared_ptr<Task> behaviorCart()
 {
   auto taskPlaySquadProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
-  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, /*taskLog("block tile", */ taskMoveToBlockTile() /*)*/);
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::GO_BLOCK_PATH, taskMoveToBlockTile());
+  taskPlaySquadProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_ROAD, taskMoveToCreateRoad());
 
   return
     std::make_shared<Alternative>(
@@ -474,9 +496,9 @@ std::shared_ptr<Task> behaviorCart()
 std::shared_ptr<Task> behaviorCity()
 {
   auto taskPlayCityProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::CREATE_WORKER, /*taskLog("block tile", */ taskCityCreateWorker() /*)*/);
-  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::CREATE_CART, /*taskLog("block tile", */ taskCityCreateCart() /*)*/);
-  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::RESEARCH, /*taskLog("block tile", */ taskCityResearch() /*)*/);
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_WORKER, taskCityCreateWorker());
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_CART, taskCityCreateCart());
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::RESEARCH, taskCityResearch());
 
   return
     std::make_shared<Alternative>(
@@ -484,7 +506,7 @@ std::shared_ptr<Task> behaviorCity()
       taskCityResearch(),
       std::make_shared<Sequence>(
         taskPlayCityProvidedObjective,
-        taskLog("Agent had nothing to do!")
+        taskLog("City had nothing to do!")
       )
     );
 }

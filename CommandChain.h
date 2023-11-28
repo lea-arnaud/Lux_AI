@@ -12,16 +12,20 @@ struct BotObjective
 {
   enum class ObjectiveType
   {
-    GO_BLOCK_PATH,
-    BUILD_CITY,
-    FEED_CITY,
-	MAKE_ROAD,
-	RESEARCH,
+	// worker/cart objectives
+    GO_BLOCK_PATH, // move to targetTile
+    BUILD_CITY, // fetch resources, go to targetTile and build a city tile
+    FEED_CITY, // fetch resources and return to targetTile (a city tile)
+	MAKE_ROAD, // move from targetTile to returnTile and back
+
+	// city objectives
+	CREATE_CART,
 	CREATE_WORKER,
-	CREATE_CART
+	RESEARCH,
   } type;
 
-  tileindex_t targetTile;
+  tileindex_t targetTile; // only available for worker/cart objectives
+  tileindex_t returnTile; // only available for MAKE_ROAD
 };
 
 enum class Archetype

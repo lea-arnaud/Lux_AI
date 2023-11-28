@@ -203,24 +203,22 @@ bool InfluenceMap::approachesPoint(int tile_x, int tile_y, int length, int step)
   for (tileindex_t i = 0; i < getSize(); i++)
   {
       if (m_map[i] > 0)
-        distances.push_back(std::pair<tileindex_t, float>(i, m_map[i]));
+          distances.emplace_back(i, m_map[i]);
   }
   std::ranges::sort(distances, std::less{});
-  std::pair<int, int> direction{};
+  std::pair<double, double> direction{};
   if (distances.size() > step) {
-      std::pair<int, int> coords = getCoord(distances[distances.size()-1].first);
-      direction.first = tile_x - coords.first;
-      direction.second = tile_y - coords.second;
-      direction.first /= sqrt(direction.first * direction.first + direction.second * direction.second);
-      direction.second /= sqrt(direction.first * direction.first + direction.second * direction.second);
+      std::pair<double, double> coords = getCoord(distances[distances.size()-1].first);
+      direction.first = (tile_x - coords.first) / sqrt(direction.first * direction.first + direction.second * direction.second);
+      direction.second = (tile_y - coords.second) / sqrt(direction.first * direction.first + direction.second * direction.second);
       for (int i = 0; i < std::min(length, (int)distances.size() - step); i += step)
       {
-          std::pair<int, int> direction_i{};
+          std::pair<double, double> direction_i{};
           direction_i.first = distances[distances.size()-1-i].first - distances[distances.size()-1-i-step].first;
           direction_i.second = distances[distances.size()-1-i].second - distances[distances.size()-1-i-step].second;
           direction_i.first /= sqrt(direction_i.first * direction_i.first + direction_i.second * direction_i.second);
           direction_i.second /= sqrt(direction_i.first * direction_i.first + direction_i.second * direction_i.second);
-          float scalar = direction.first * direction_i.first + direction.second * direction_i.second;
+          double scalar = direction.first * direction_i.first + direction.second * direction_i.second;
           if (std::abs(std::acos(scalar)) > angle)
               return false;
       }

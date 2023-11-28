@@ -20,7 +20,7 @@ float similarPercentage = 40.f;
 // Power for the difference between two path points value for similarity (this difference is always <= 1)
 float similarityTolerance = 4.f;
 // Propagation of paths radius
-float propagationRadius = 2;
+int propagationRadius = 2;
 
 // ## Path linking resource and city detection - TILES VERSION
 // Percentage of the InfluenceMap of the resource/city needed to be considered as linking
