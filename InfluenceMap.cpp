@@ -12,6 +12,26 @@ std::mt19937 g_randomEngine{ std::random_device{}()};
 
 constexpr float PI = 3.14159265359f;
 
+InfluenceMap::InfluenceMap(InfluenceMap &&moved)
+  : m_width(std::exchange(moved.m_width, 0))
+  , m_height(std::exchange(moved.m_height, 0))
+  , m_map(std::exchange(moved.m_map, {}))
+{
+}
+
+InfluenceMap &InfluenceMap::operator=(InfluenceMap &&moved)
+{
+  InfluenceMap{ std::move(moved) }.swap(*this);
+  return *this;
+}
+
+void InfluenceMap::swap(InfluenceMap &other)
+{
+  std::swap(m_width, other.m_width);
+  std::swap(m_height, other.m_height);
+  std::swap(m_map, other.m_map);
+}
+
 void InfluenceMap::setSize(int width, int height)
 {
   m_width = width;
@@ -20,13 +40,13 @@ void InfluenceMap::setSize(int width, int height)
   m_map.resize(width * height, 0.0f);
 }
 
-InfluenceMap& InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float), int range = 32)
+InfluenceMap& InfluenceMap::propagate(tileindex_t index, float initialInfluence, float(*propagationFunction)(float, float), int range)
 {
   auto [x1, y1] = getCoord(index);
 
-  for (int y2 = 0; y2 < std::min(m_height, range); ++y2) {
-    for (int x2 = 0; x2 < std::min(m_width, range); ++x2) {
-      m_map[index] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
+  for (int y2 = std::max(0, y1 - range); y2 < std::min(m_height, y1 + range + 1); ++y2) {
+    for (int x2 = std::max(0, x1 - range); x2 < std::min(m_width, x1 + range + 1); ++x2) {
+      m_map[getIndex(x2, y2)] += propagationFunction(initialInfluence, static_cast<float>(std::abs(x1 - x2) + std::abs(y1 - y2)));
     }
   }
 
@@ -234,3 +254,26 @@ std::pair<unsigned, unsigned> InfluenceMap::getRandomValuedPoint() const
       valuedPoints.push_back(i);
   return getCoord(valuedPoints[g_randomEngine()%valuedPoints.size()]);
 }
+
+InfluenceMap InfluenceMap::propagateAllTimes(int n) const
+{
+  if (n == 0) return *this;
+  MULTIBENCHMARK_LAPBEGIN(propagateAllTimes);
+  InfluenceMap i1{ *this };
+  InfluenceMap i2{ m_width, m_height };
+  for (int k = 0; k < n; k++) {
+    for (int i = 0; i < m_height; i++) {
+      for (int j = 0; j < m_width; j++) {
+        i2.m_map[i*m_width + j] = i1.m_map[i*m_width + j];
+        if (i < m_height-1) i2.m_map[i*m_width + j] += i1.m_map[(i+1)*m_width + j]/2.f;
+        if (i > 0)          i2.m_map[i*m_width + j] += i1.m_map[(i-1)*m_width + j]/2.f;
+        if (j < m_width-1)  i2.m_map[i*m_width + j] += i1.m_map[i*m_width + j + 1]/2.f;
+        if (j > 0)          i2.m_map[i*m_width + j] += i1.m_map[i*m_width + j - 1]/2.f;
+      }
+    }
+    std::swap(i1, i2);
+  }
+  MULTIBENCHMARK_LAPEND(propagateAllTimes);
+  return i1;
+}
+

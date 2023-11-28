@@ -5,6 +5,7 @@
 
 #include "Types.h"
 #include "BehaviorTree.h"
+#include "Benchmarking.h"
 
 enum class UnitType {
   WORKER = 0,
@@ -44,11 +45,15 @@ public:
   void acted() { hasCreated = true; }
   void release() { isReserved = false; hasCreated = false; }
 
-  bool getReserveState() { return isReserved; }
-  bool getActedState() { return hasCreated; }
+  bool getReserveState() const { return isReserved; }
+  bool getActedState() const { return hasCreated; }
 
   Blackboard &getBlackboard() { return *m_blackboard; }
-  void act() { m_behaviorTree->run(m_blackboard); }
+  void act() {
+    MULTIBENCHMARK_LAPBEGIN(AgentBT);
+    m_behaviorTree->run(m_blackboard);
+    MULTIBENCHMARK_LAPEND(AgentBT);
+  }
 
   Bot(const Bot &) = delete;
   Bot &operator=(const Bot &) = delete;

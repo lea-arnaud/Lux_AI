@@ -496,8 +496,8 @@ std::shared_ptr<Task> behaviorCart()
 std::shared_ptr<Task> behaviorCity()
 {
   auto taskPlayCityProvidedObjective = std::make_shared<BotObjectiveAlternative>();
-  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_WORKER, taskCityCreateWorker());
-  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::MAKE_CART, taskCityCreateCart());
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::CREATE_WORKER, taskCityCreateWorker());
+  taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::CREATE_CART, taskCityCreateCart());
   taskPlayCityProvidedObjective->addStrategy(BotObjective::ObjectiveType::RESEARCH, taskCityResearch());
 
   return

@@ -12,13 +12,11 @@
 #include "lux/annotate.hpp"
 #include "Statistics.h"
 
-#include <stdio.h>
-
 int main()
 {
     if (params::trainingMode)
         params::updateParams();
-    std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
+    //std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
 
     statistics::GameStats{};
 
@@ -51,6 +49,7 @@ int main()
             MULTIBENCHMARK_BEGIN(AgentBT);
             MULTIBENCHMARK_BEGIN(getBestCityBuildingLocation);
             MULTIBENCHMARK_BEGIN(getBestCityFeedingLocation);
+            MULTIBENCHMARK_BEGIN(propagateAllTimes);
 
             BENCHMARK_BEGIN(ExtractGameState);
             agent.ExtractGameState();
@@ -74,6 +73,7 @@ int main()
             MULTIBENCHMARK_END(Astar);
             MULTIBENCHMARK_END(getBestCityBuildingLocation);
             MULTIBENCHMARK_END(getBestCityFeedingLocation);
+            MULTIBENCHMARK_END(propagateAllTimes);
             BENCHMARK_END(TurnTotal);
 
             #ifdef BENCHMARKING

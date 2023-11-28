@@ -35,6 +35,7 @@ MULTIBENCHMARK_DEFINE(Astar);
 MULTIBENCHMARK_DEFINE(AgentBT);
 MULTIBENCHMARK_DEFINE(getBestCityBuildingLocation);
 MULTIBENCHMARK_DEFINE(getBestCityFeedingLocation);
+MULTIBENCHMARK_DEFINE(propagateAllTimes);
 
 }
 #endif

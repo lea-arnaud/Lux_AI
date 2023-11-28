@@ -82,6 +82,8 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
     std::vector<Bot *> friendlyCities{};
     std::vector<Bot *> availableCities{};
 
+    m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
+
     int availableUnits = m_globalBlackboard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) * 2 - m_globalBlackboard->getData<int>(bbn::GLOBAL_AGENTS);
 
     for (auto &city : m_gameState->bots) {
@@ -111,10 +113,11 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         squad.sendReinforcementsRequest(friendlyCities, availableUnits);
     });
 
-    m_globalBlackboard->insertData(bbn::GLOBAL_ORDERS_LIST, &orders);
-
     std::ranges::for_each(availableCities, [&, this](Bot *city) {
-        BotObjective objective{ BotObjective::ObjectiveType::RESEARCH, 0 };
+        // by default, cities do research. If they have been reserved to create more workers
+        // send that order instead
+        BotObjective objective{ BotObjective::ObjectiveType::CREATE_WORKER };
+        //BotObjective objective{ BotObjective::ObjectiveType::RESEARCH };
         city->getBlackboard().insertData(bbn::AGENT_SELF, city);
         if (!city->getReserveState())
             city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
@@ -225,10 +228,14 @@ bool Commander::shouldUpdateSquads(const GameStateDiff &diff, const std::vector<
 
 void Commander::rearrangeSquads(const GameStateDiff &diff)
 {
+  BENCHMARK_BEGIN(getEnemyStance);
   auto enemyStance = currentStrategy.getEnemyStance(*m_gameState);
+  BENCHMARK_END(getEnemyStance);
   if(m_previousEnemyStance.empty() || shouldUpdateSquads(diff, enemyStance)) {
     lux::Annotate::sidetext("! Updating squads");
+    BENCHMARK_BEGIN(adaptToEnemy);
     auto stanceToTake = currentStrategy.adaptToEnemy(enemyStance, *m_gameState, m_globalBlackboard);
+    BENCHMARK_END(adaptToEnemy);
     BENCHMARK_BEGIN(createSquads);
     m_squads = currentStrategy.createSquads(stanceToTake, m_gameState);
     m_previousEnemyStance = std::move(enemyStance);
@@ -289,9 +296,16 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
       std::erase_if(enemyClusters, [](auto &cluster) { return cluster.cityTileCount < 3; });
     }
 
-    std::vector<std::string> seenIds{}; 
+    InfluenceMap propagatedInfluence = gameState.resourcesInfluence.propagateAllTimes(1);
 
-    bool b = false;
+    std::unordered_set<std::string> seenIds;
+
+    std::unordered_map<std::string, InfluenceMap> propagatedPaths;
+    for(auto &[botId, path] : gameState.ennemyPath) {
+      auto propagated = path.propagateAllTimes(params::propagationRadius);
+      propagated.normalize();
+      propagatedPaths.emplace(botId, std::move(propagated));
+    }
 
     for(const std::unique_ptr<Bot> &bot : gameState.bots) {
       // We don't look at enemies nor cities
@@ -299,13 +313,18 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         continue;
 
       // We don't look at already assigned bots
-      if (std::ranges::find(seenIds, bot->getId()) != seenIds.end())
+      if (seenIds.contains(bot->getId()))
         continue;
 
-      // get bot path
-      auto &path = gameState.ennemyPath.at(bot->getId());
+      EnemySquadInfo enemySquadInfo{
+        bot->getType() == UnitType::WORKER ? (unsigned int)1 : (unsigned int)0,
+        bot->getType() == UnitType::CART ? (unsigned int)1 : (unsigned int)0,
+        gameState.ennemyPath.at(bot->getId()), // FIX
+        Archetype::CITIZEN
+      };
 
-      EnemySquadInfo enemySquadInfo{ bot->getType() == UnitType::WORKER ? (unsigned int)1 : (unsigned int)0, bot->getType() == UnitType::CART ? (unsigned int)1 : (unsigned int)0 ,path,Archetype::CITIZEN };
+      // propagate the path (blur) to make it more sensitive to surroundings
+      InfluenceMap &propagatedPath = propagatedPaths[bot->getId()];
 
       // compare with not already assigned bots
       for(const std::unique_ptr<Bot> &bot2 : gameState.bots)
@@ -314,29 +333,25 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
           if (bot->getType() == UnitType::CITY || bot->getTeam() != Player::ENEMY)
               continue;
           // We don't look at already assigned bots
-          if (std::ranges::find(seenIds, bot2->getId()) != seenIds.end())
+          if (seenIds.contains(bot->getId()))
               continue;
           if (!gameState.ennemyPath.contains(bot2->getId())) continue;
           if (bot->getId() == bot2->getId()) continue;
-          auto path2 = (gameState.ennemyPath.at(bot2->getId())).propagateAllTimes(params::propagationRadius);
+          auto &path2 = propagatedPaths[bot2->getId()];
           // We check if paths are similar
-          if ((path.propagateAllTimes(params::propagationRadius)).getSimilarity(path2, params::similarityTolerance) >= params::similarPercentage) {
-            seenIds.push_back(bot2->getId());
+          if (propagatedPath.propagateAllTimes(params::propagationRadius).getSimilarity(path2, params::similarityTolerance) >= params::similarPercentage) {
+            seenIds.insert(bot2->getId());
             if (bot->getType() == UnitType::WORKER)
                 enemySquadInfo.botNb++;
             else
                 enemySquadInfo.cartNb++;
           }
       }
-
-      // propagate the path (blur) to make it more sensitive to surroundings
-      InfluenceMap propagatedPath = path.propagateAllTimes(params::propagationRadius);
-      propagatedPath.normalize();
         
       // guess the squad's current objective
 
       // if bot's path covers a resource point... TODO might need to propagate resourceInfluence
-      if (propagatedPath.coversTiles(gameState.resourcesInfluence.propagateAllTimes(1), params::resourceTilesNeeded))
+      if (propagatedPath.coversTiles(propagatedInfluence, params::resourceTilesNeeded))
       {
           // enemyCities is an InfluenceMap created to facilitate operations with path
           InfluenceMap enemyCities{gameState.citiesInfluence.getWidth(), gameState.citiesInfluence.getHeight()};
@@ -348,10 +363,11 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
                   coversACity = true;
                   break;
               }
-          };
+          }
       
           // if bot's path covers a resource point AND an enemy city, he's either expanding the city or fueling it (same movement pattern, in fact)
           if (coversACity) {
+              auto &path = gameState.ennemyPath.at(bot->getId());
               enemySquadInfo.mission = Archetype::FARMER; // Or CITIZEN, really
               InfluenceMap startCheck{ path };
               startCheck.multiplyMap(enemyCities);
@@ -377,7 +393,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         for (CityCluster cc : cityClusters[0])
         {
             // TODO we may wanna create a specific parameter for the length of this path
-            if (path.approachesPoint(cc.center_x, cc.center_y, params::ennemyPathingTurn, params::pathStep))
+            if (gameState.ennemyPath.at(bot->getId()).approachesPoint(cc.center_x, cc.center_y, params::ennemyPathingTurn, params::pathStep))
             {
                 movingTowardsAllyCity = true;
                 targetedCity = cc;
@@ -414,8 +430,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         case Archetype::TROUBLEMAKER: troublemakers++; break;
         case Archetype::FARMER: farmers++; break;
         case Archetype::ROADMAKER: roadmakers++; break;
-        default:
-            break;
+        default: break;
         }
     }
 
@@ -430,7 +445,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
     return enemySquads;
 }
 
-//TODO : set and use positions in SquadRequirement
 std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard)
 {
     std::vector<SquadRequirement> squadRequirements{};
@@ -460,7 +474,7 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     // to settlers that target a tile near them)
     availableBots -= std::min(availableBots, 2ull);
 
-    int craftableBots = blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts;
+    size_t craftableBots = blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts;
 
     // sustain
     for(size_t i = 0; i < allyCities.size() && craftableBots > 2; i++) {
@@ -577,13 +591,14 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
 
 void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &availableUnits)
 {
-    std::for_each(m_agentsToCreate.begin(), m_agentsToCreate.end(), [&, this, availableUnits, cities](std::pair<std::pair<int, int>, UnitType> bot) {
+    ranges::for_each(m_agentsToCreate, [&, this, availableUnits, cities](std::pair<std::pair<int, int>, UnitType> bot) {
         Bot *nearestCity = cities[0];
         unsigned int nearestDistance = std::numeric_limits<unsigned int>::max();
         for (Bot *city : cities) {
-            if (abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY()) < nearestDistance && !city->getReserveState()) {
+            unsigned int botToCityDist = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
+            if (botToCityDist < nearestDistance && !city->getReserveState()) {
                 nearestCity = city;
-                nearestDistance = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
+                nearestDistance = botToCityDist;
             }
         }
         if (bot.second == UnitType::WORKER)
@@ -591,7 +606,7 @@ void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &available
         else
             nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, { BotObjective::ObjectiveType::CREATE_CART });
         nearestCity->reserve();
-        m_agentsInCreation.push_back(std::pair<Bot*,UnitType>(nearestCity, bot.second));
+        m_agentsInCreation.emplace_back(nearestCity, bot.second);
     });
 }
 

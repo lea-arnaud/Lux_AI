@@ -6,6 +6,7 @@
 #include <random>
 #include <iostream>
 
+#include "Benchmarking.h"
 #include "Types.h"
 
 template <class T>
@@ -32,8 +33,7 @@ public:
 };
 
 template <unsigned W, unsigned H>
-constexpr InfluenceTemplate<W, H>::InfluenceTemplate(int x1, int y1, float influence,
-  float(* propagationFunction)(float, float))
+constexpr InfluenceTemplate<W, H>::InfluenceTemplate(int x1, int y1, float influence, float(* propagationFunction)(float, float))
 {
   for (int i = 0; i < W * H; ++i) {
     int x2 = i % W;
@@ -42,8 +42,6 @@ constexpr InfluenceTemplate<W, H>::InfluenceTemplate(int x1, int y1, float influ
     m_map[i] = propagationFunction(influence, static_cast<float>(distance));
   }
 }
-
-// TODO: rajouter des verifications
 
 class InfluenceMap
 {
@@ -55,6 +53,13 @@ public:
   InfluenceMap(int width, int height)
     : m_width{ width }, m_height{ height }, m_map(static_cast<size_t>(width) *height, 0.f)
   {}
+
+  InfluenceMap(const InfluenceMap &) = default;
+  InfluenceMap &operator=(const InfluenceMap &) = default;
+  InfluenceMap(InfluenceMap &&);
+  InfluenceMap &operator=(InfluenceMap &&);
+
+  void swap(InfluenceMap &);
 
   void setSize(int width, int height);
 
@@ -78,40 +83,10 @@ public:
   InfluenceMap& multiplyMap(const InfluenceMap &influenceMap, float weight = 1.0f);
 
   template <unsigned int W, unsigned int H>
-  InfluenceMap& addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
-  {
-    int deltaX = index % m_width - W / 2;
-    int deltaY = index / m_width - H / 2;
-
-    for (int i = 0; i < W * H; ++i) {
-      int x = i % W + deltaX;
-      int y = i / W + deltaY;
-
-      if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
-
-      m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
-    }
-
-    return *this;
-  }
+  InfluenceMap& addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f);
 
   template <unsigned int W, unsigned int H>
-  InfluenceMap& multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f)
-  {
-    int deltaX = index % m_width - W / 2;
-    int deltaY = index / m_width - H / 2;
-
-    for (int i = 0; i < W * H; ++i) {
-      int x = i % W + deltaX;
-      int y = i / W + deltaY;
-
-      if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
-
-      m_map[getIndex(x, y)] *= influenceTemplate.m_map[i] * weight;
-    }
-
-    return *this;
-  }
+  InfluenceMap& multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight = 1.0f);
 
   InfluenceMap& normalize();
   InfluenceMap& flip();
@@ -133,50 +108,44 @@ public:
 
   std::pair<unsigned int, unsigned int> getRandomValuedPoint() const;
 
-  InfluenceMap propagateAllTimes(int n) const
-  {
-      InfluenceMap i1 = propagateAllOnce();
-      for (int i = 0; i < n-1; i++)
-      {
-          i1 = i1.propagateAllOnce();
-      }
-      return i1;
-  }
-
-  void printMap () const
-  {
-      for (int i = 0; i < getHeight(); i++) {
-          for (int j = 0; j < getWidth(); j++) {
-              if (m_map[i*getWidth()+j] >= 1.f) std::cerr << "*";
-              else if (m_map[i*getWidth()+j] >= 0.75f) std::cerr << "+";
-              else if (m_map[i*getWidth()+j] >= 0.5f) std::cerr << "/";
-              else if (m_map[i*getWidth()+j] >= 0.25f) std::cerr << "-";
-              else std::cerr << "_";
-          }
-          std::cerr << '\n';
-      }
-  }
-
-private:
-  InfluenceMap propagateAllOnce() const
-  {
-      InfluenceMap propagated{m_width, m_height};
-      for (int i = 0; i < m_height; i++)
-      {
-          for (int j = 0; j < m_width; j++)
-          {
-              propagated.m_map[i*m_width + j] += m_map[i*m_width + j];
-              if (i < m_height-1) propagated.m_map[(i+1)*m_width + j] += m_map[i*m_width + j]/2.f;
-              if (i > 0) propagated.m_map[(i-1)*m_width + j] += m_map[i*m_width + j]/2.f;
-              if (j < m_width-1) propagated.m_map[i*m_width + j + 1] += m_map[i*m_width + j]/2.f;
-              if (j > 0) propagated.m_map[i*m_width + j - 1] += m_map[i*m_width + j]/2.f;
-              propagated.propagate(i*m_width + j, m_map[i*m_width+j], [](float f1, float f2)-> float {return std::max(0.f, f1 - f2/2.f); }, 2);
-          }
-      }
-      return propagated;
-  }
-
+  InfluenceMap propagateAllTimes(int n) const;
 };
+
+template <unsigned W, unsigned H>
+InfluenceMap &InfluenceMap::addTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight)
+{
+  int deltaX = index % m_width - W / 2;
+  int deltaY = index / m_width - H / 2;
+
+  for (int i = 0; i < W * H; ++i) {
+    int x = i % W + deltaX;
+    int y = i / W + deltaY;
+
+    if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
+
+    m_map[getIndex(x, y)] += influenceTemplate.m_map[i] * weight;
+  }
+
+  return *this;
+}
+
+template <unsigned W, unsigned H>
+InfluenceMap &InfluenceMap::multiplyTemplateAtIndex(tileindex_t index, const InfluenceTemplate<W, H> &influenceTemplate, float weight)
+{
+  int deltaX = index % m_width - W / 2;
+  int deltaY = index / m_width - H / 2;
+
+  for (int i = 0; i < W * H; ++i) {
+    int x = i % W + deltaX;
+    int y = i / W + deltaY;
+
+    if (x < 0 || x >= m_width || y < 0 || y >= m_height) continue;
+
+    m_map[getIndex(x, y)] *= influenceTemplate.m_map[i] * weight;
+  }
+
+  return *this;
+}
 
 namespace influence_templates
 {

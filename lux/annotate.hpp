@@ -12,6 +12,7 @@ namespace lux
   public:
     static std::vector<std::string> s_logs;
 
+#ifdef _DEBUG
     static void circle(int x, int y)
     {
       s_logs.push_back("dc " + to_string(x) + " " + to_string(y));
@@ -41,6 +42,14 @@ namespace lux
     {
       s_logs.push_back("dst '" + message + "'");
     }
+#else
+    #define MOCK_FUNC(name) static void name(auto &&...args) {}
+    MOCK_FUNC(circle)
+    MOCK_FUNC(x)
+    MOCK_FUNC(line)
+    MOCK_FUNC(text)
+    MOCK_FUNC(sidetext)
+#endif
   };
 }
 
