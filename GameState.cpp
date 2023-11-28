@@ -50,7 +50,7 @@ bool GameState::shouldExpand()
   // TODO: should take the agent into consideration and the ennemy
   
   // calculate the resources needed to survive till the end
-  int nightDuration = (360 - currentTurn) * 0.25; // 1/4 tu temps est la nuit
+  size_t nightDuration = (360 - currentTurn) / 4; // 1/4 tu temps est la nuit
   float resourceNeededToSurvive = resourcesNeeded * nightDuration;
 
   if (resourceNeededToSurvive > 0.75 * (resourcesRemaining + resourcesOwned)) return false;

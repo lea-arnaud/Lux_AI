@@ -146,7 +146,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
             targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, static_cast<int>(squad.getAgents().size()));
             break;
         case Archetype::TROUBLEMAKER:
-            targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+            targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, static_cast<int>(squad.getAgents().size()));
             mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
             break;
         case Archetype::ROADMAKER:
