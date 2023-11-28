@@ -481,8 +481,6 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     // to settlers that target a tile near them)
     availableBots -= std::min(availableBots, 2ull);
 
-    size_t craftableBots = blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts;
-
     // sustain
     for(size_t i = 0; i < allyCities.size() && availableBots + craftableBots > 0; i++) {
         auto &cc = allyCities[i];
