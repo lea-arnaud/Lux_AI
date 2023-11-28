@@ -113,6 +113,29 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         squad.sendReinforcementsRequest(friendlyCities, availableUnits);
     });
 
+#ifdef _DEBUG
+    int citizens = 0, killers = 0, settlers = 0, troublemakers = 0, farmers = 0, roadmakers = 0;
+
+    for (size_t i = 0; i < m_squads.size(); i++) {
+        switch (m_squads[i].getArchetype()) {
+        case Archetype::CITIZEN: citizens++; break;
+        case Archetype::KILLER: killers++; break;
+        case Archetype::SETTLER: settlers++; break;
+        case Archetype::TROUBLEMAKER: troublemakers++; break;
+        case Archetype::FARMER: farmers++; break;
+        case Archetype::ROADMAKER: roadmakers++; break;
+        default: break;
+        }
+    }
+
+    lux::Annotate::sidetext("nb of ally SETTLER : " + std::to_string(settlers));
+    lux::Annotate::sidetext("nb of ally CITIZEN : " + std::to_string(citizens));
+    lux::Annotate::sidetext("nb of ally FARMER : " + std::to_string(farmers));
+    lux::Annotate::sidetext("nb of ally KILLER : " + std::to_string(killers));
+    lux::Annotate::sidetext("nb of ally TROUBLEMAKER : " + std::to_string(troublemakers));
+    lux::Annotate::sidetext("nb of ally ROADMAKER : " + std::to_string(roadmakers));
+#endif
+
     std::ranges::for_each(availableCities, [&, this](Bot *city) {
         // by default, cities do research. If they have been reserved to create more workers
         // send that order instead
@@ -125,8 +148,6 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         city->act();
     });
 
-    lux::Annotate::sidetext("Number of available cities : " + std::to_string(availableCities.size()));
-
     if (params::trainingMode)
         statistics::gameStats.printGameStats(m_globalBlackboard);
 
@@ -138,14 +159,16 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
             BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
             switch (squad.getArchetype()) {
             case Archetype::CITIZEN:
-                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
                 break;
             case Archetype::SETTLER:
-                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
                 break;
             case Archetype::FARMER:
                 mission = BotObjective::ObjectiveType::FEED_CITY;
-                targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                for (auto bot : squad.getAgents())
+                    targetTiles.push_back(squad.getTargetTile());
+                //targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
                 break;
             case Archetype::TROUBLEMAKER:
                 targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
@@ -289,7 +312,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 {
     std::vector<EnemySquadInfo> enemySquads;
 
-    LOG("Turn " + std::to_string(gameState.currentTurn));
+    //LOG("Turn " + std::to_string(gameState.currentTurn));
 
     auto cityClusters = getCityClusters(gameState);
 
@@ -436,12 +459,12 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         }
     }
 
-    lux::Annotate::sidetext("nb of SETTLER : " + std::to_string(settlers));
+    /*lux::Annotate::sidetext("nb of SETTLER : " + std::to_string(settlers));
     lux::Annotate::sidetext("nb of CITIZEN : " + std::to_string(citizens));
     lux::Annotate::sidetext("nb of FARMER : " + std::to_string(farmers));
     lux::Annotate::sidetext("nb of KILLER : " + std::to_string(killers));
     lux::Annotate::sidetext("nb of TROUBLEMAKER : " + std::to_string(troublemakers));
-    lux::Annotate::sidetext("nb of ROADMAKER : " + std::to_string(roadmakers));
+    lux::Annotate::sidetext("nb of ROADMAKER : " + std::to_string(roadmakers));*/
 #endif
 
     return enemySquads;
@@ -472,9 +495,6 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     priorities.emplace(Archetype::TROUBLEMAKER, 2);
 
     int craftableBots = std::max(0, (int)(blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts));
-
-    LOG("Total bots available : " + std::to_string(craftableBots + availableBots));
-    LOG("Craftable bots this turn : " + std::to_string(craftableBots));
 
     // explore
     // (after all requirements have been fullfilled, remaining bots will be assigned
@@ -574,7 +594,6 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
                     nSquad.getAgentsToCreate().push_back({ {gameState->map.getTilePosition(sr.missionTarget)}, UnitType::CART });
                 remainingWorkers = 0;
                 remainingCarts = 0;
-                LOG("reserving needed bots");
             }
             else
             {
@@ -597,8 +616,11 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
     }
 
     // assign remaining bots as settlers/farmers
-    size_t lateAssign = 0;
+    size_t lateAssign = -1;
     for(Bot *remainingBot : unassignedBots) {
+
+        lateAssign++;
+
         // 1/4 settler
         if(lateAssign % 4 == 0) {
             tileindex_t targetCity = pathing::getBestCityBuildingLocation(remainingBot, gameState);
@@ -610,14 +632,12 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
         // 1/4 citizen
         if(lateAssign % 4 == 1)
         {
-            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::SETTLER, pathing::getBestExpansionLocation(remainingBot, gameState));
+            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::CITIZEN, pathing::getBestExpansionLocation(remainingBot, gameState));
             continue;
         }
 
         // 2/4 farmer
         newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
-
-        lateAssign++;
     }
 
     return newSquads;

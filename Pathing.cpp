@@ -207,7 +207,8 @@ std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const 
 std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const GameState *gameState, int n)
 {
     static constexpr float DISTANCE_WEIGHT = -1.f;
-    static constexpr float ADJACENT_CITIES_WEIGHT = +1.f;
+    static constexpr float ADJACENT_CITIES_WEIGHT = +0.f;
+    static constexpr float ADJACENT_RESOURCES_WEIGHT = +1.f;
 
     std::vector<std::pair<tileindex_t, float>> tiles{};
     const Map *map = &gameState->map;
@@ -215,14 +216,35 @@ std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const Game
         if (map->tileAt(i).getType() != TileType::EMPTY) continue;
         std::pair<int, int> coords = map->getTilePosition(i);
         size_t neighborCities = 0;
+        float resourceScore = 0.f;
         std::vector<tileindex_t> neighbors = map->getValidNeighbours(i, 0);
         for (tileindex_t j : neighbors) {
             if (map->tileAt(j).getType() == TileType::ALLY_CITY)
                 neighborCities++;
+            if (map->tileAt(j).getType() == TileType::RESOURCE)
+            {
+                kit::ResourceType rt = map->tileAt(j).getResourceType();
+                float rs = map->tileAt(j).getResourceAmount();
+                switch (rt) {
+                case kit::ResourceType::wood:
+                    rs *= game_rules::FUEL_VALUE_WOOD;
+                    break;
+                case kit::ResourceType::coal:
+                    rs *= gameState->playerResearchPoints[Player::ALLY] > 50 ? game_rules::FUEL_VALUE_COAL : 0;
+                    break;
+                case kit::ResourceType::uranium:
+                    rs *= gameState->playerResearchPoints[Player::ALLY] > 200 ? game_rules::FUEL_VALUE_URANIUM : 0;
+                    break;
+                default:
+                    break;
+                }
+                resourceScore += rs;
+            }
         }
         float tileScore =
             ADJACENT_CITIES_WEIGHT * neighborCities +
-            DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second));
+            DISTANCE_WEIGHT * (abs(bot->getX() - coords.first) + abs(bot->getY() - coords.second)) +
+            ADJACENT_RESOURCES_WEIGHT * resourceScore;
         tiles.push_back(std::pair<tileindex_t, float>(i, tileScore));
     }
     std::ranges::sort(tiles, [](std::pair<tileindex_t, float> p1, std::pair<tileindex_t, float> p2) {return p1.second > p2.second; });
