@@ -61,6 +61,16 @@ namespace kit
                 newState.map.tileAt(x, y).setResourceAmount(amt);
                 newState.map.tileAt(x, y).setType(TileType::RESOURCE, resourceType);
                 newState.resourcesIndex.push_back(newState.map.getTileIndex(x, y));
+
+                // TODO: maybe take into account the ResearchPoint
+                switch (resourceType) {
+                case kit::ResourceType::wood: 
+                  newState.resourcesRemaining += amt * game_rules::FUEL_VALUE_WOOD; break;
+                case kit::ResourceType::coal: 
+                  newState.resourcesRemaining += amt * game_rules::FUEL_VALUE_COAL; break;
+                case kit::ResourceType::uranium: 
+                  newState.resourcesRemaining += amt * game_rules::FUEL_VALUE_URANIUM; break;
+                }
             }
             else if (input_identifier == INPUT_CONSTANTS::UNITS)
             {
@@ -109,6 +119,11 @@ namespace kit
                 float fuel = std::stof(updates[i++]);
                 float lightUpkeep = std::stof(updates[i++]);
                 newState.cities.push_back(std::make_unique<City>(cityid, getPlayer(team), fuel, lightUpkeep));
+
+                if (getPlayer(team) == Player::ALLY) {
+                  newState.resourcesNeeded += lightUpkeep;
+                  newState.resourcesOwned += fuel;
+                }
             }
             else if (input_identifier == INPUT_CONSTANTS::CITY_TILES)
             {

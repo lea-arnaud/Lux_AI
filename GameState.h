@@ -33,9 +33,13 @@ struct GameState
   InfluenceMap resourcesInfluence;
   std::unordered_map<std::string, InfluenceMap> ennemyPath;
 
+  // Used to choose if we can have more city or not
+  float resourcesRemaining, resourcesNeeded, resourcesOwned;
+
   std::optional<const Bot*> getEntityAt(tileindex_t tile) const { auto [x, y] = map.getTilePosition(tile); return getEntityAt(x, y); }
   std::optional<const Bot*> getEntityAt(int x, int y) const;
   void computeInfluence(const GameStateDiff &gameStateDiff);
+  bool shouldExpand();
 };
 
 #endif

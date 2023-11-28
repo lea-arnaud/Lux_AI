@@ -101,7 +101,7 @@ std::vector<TurnOrder> Commander::getTurnOrders()
             targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
             break;
         case Archetype::TROUBLEMAKER:
-            targetTiles = { squad.getTargetTile() }; // TODO give more tiles to block ? Our troublemakers are loners though...
+            targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
             mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
             break;
         case Archetype::ROADMAKER:

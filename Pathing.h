@@ -13,11 +13,13 @@ tileindex_t getResourceFetchingLocation(const Bot *bot, const GameState *gameSta
 tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameState);
 tileindex_t getBestExpansionLocation(const Bot *bot, const GameState *gameState);
 tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameState);
+tileindex_t getBestBlockingPathLocation(const Bot *bot, const GameState *gameState);
 tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState, const std::vector<tileindex_t> &occupiedTiles);
 
 std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const GameState *gameState, int n);
 std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const GameState *gameState, int n);
 std::vector<tileindex_t> getManyExpansionLocations(const Bot *bot, const GameState *gameState, int n);
+std::vector<tileindex_t> getManyBlockingPathLocations(const Bot *bot, const GameState *gameState, int n);
 }
 
 #endif
