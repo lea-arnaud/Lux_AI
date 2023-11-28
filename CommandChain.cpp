@@ -132,63 +132,65 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
 
     std::ranges::for_each(m_squads, [&, this](Squad &squad)
     {
-        std::vector<tileindex_t> targetTiles{};
-        BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
-        switch (squad.getArchetype()) {
-        case Archetype::CITIZEN: 
-            targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, static_cast<int>(squad.getAgents().size()));
-            break;
-        case Archetype::SETTLER: 
-            targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, static_cast<int>(squad.getAgents().size()));
-            break;
-        case Archetype::FARMER:
-            mission = BotObjective::ObjectiveType::FEED_CITY;
-            targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, static_cast<int>(squad.getAgents().size()));
-            break;
-        case Archetype::TROUBLEMAKER:
-            targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, static_cast<int>(squad.getAgents().size()));
-            mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
-            break;
-        case Archetype::ROADMAKER:
-            mission = BotObjective::ObjectiveType::MAKE_ROAD; // Should only be applied to carts
-            // Also, we don't have any roadmakers for now...
-            break;
-        case Archetype::KILLER:
-            // TODO implement KILLER squad behavior with GOAP
-            break;
-        }
-        // TODO rework this code, it is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
-        // otherwise, some bots WON'T EVER MOVE
-
-        std::unordered_set<Bot *> playableBots{ squad.getAgents().begin(), squad.getAgents().end() };
-
-        // for each target tile, we search the nearest bot
-        for (tileindex_t tile : targetTiles) {
-            if(tile == (tileindex_t)-1) {
-                LOG("Could not find a valid target for goal " << (int)squad.getArchetype());
-                continue; // an objective cannot be fullfilled
+        if (squad.getAgents().size() > 0) 
+        {
+            std::vector<tileindex_t> targetTiles{};
+            BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
+            switch (squad.getArchetype()) {
+            case Archetype::CITIZEN:
+                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                break;
+            case Archetype::SETTLER:
+                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                break;
+            case Archetype::FARMER:
+                mission = BotObjective::ObjectiveType::FEED_CITY;
+                targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                break;
+            case Archetype::TROUBLEMAKER:
+                targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squad.getAgents().size());
+                mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
+                break;
+            case Archetype::ROADMAKER:
+                mission = BotObjective::ObjectiveType::MAKE_ROAD; // Should only be applied to carts
+                // Also, we don't have any roadmakers for now...
+                break;
+            case Archetype::KILLER:
+                // TODO implement KILLER squad behavior with GOAP
+                break;
             }
-            if(playableBots.empty()) break;
-            Bot *nearestBot = nullptr;
-            size_t nearestDist = INT_MAX;
-            for (Bot *bot : playableBots) {
-                size_t botDist = m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY()));
-                if (botDist < nearestDist) {
-                    nearestBot = bot;
-                    nearestDist = botDist;
+            // TODO rework this code, it is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
+            // otherwise, some bots WON'T EVER MOVE
+
+            std::unordered_set<Bot *> playableBots{ squad.getAgents().begin(), squad.getAgents().end() };
+
+            // for each target tile, we search the nearest bot
+            for (tileindex_t tile : targetTiles) {
+                if (tile == (tileindex_t)-1) {
+                    LOG("Could not find a valid target for goal " << (int)squad.getArchetype());
+                    continue; // an objective cannot be fullfilled
                 }
+                if (playableBots.empty()) break;
+                Bot *nearestBot = nullptr;
+                unsigned int nearestDist = INT_MAX;
+                for (Bot *bot : playableBots) {
+                    if (m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) < nearestDist) {
+                        nearestBot = bot;
+                        nearestDist = m_gameState->map.distanceBetween(tile, m_gameState->map.getTileIndex(bot->getX(), bot->getY()));
+                    }
+                }
+                playableBots.erase(nearestBot);
+                // he acts only if he can
+                if (nearestBot->getCooldown() >= game_rules::MAX_ACT_COOLDOWN)
+                    continue;
+                // we put this tile as the bot's objective
+                //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
+                BotObjective objective{ mission, tile };
+                nearestBot->getBlackboard().insertData(bbn::AGENT_SELF, nearestBot);
+                nearestBot->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
+                nearestBot->getBlackboard().setParentBoard(m_globalBlackboard);
+                nearestBot->act();
             }
-            playableBots.erase(nearestBot);
-            // he acts only if he can
-            if (nearestBot->getCooldown() >= game_rules::MAX_ACT_COOLDOWN)
-                continue;
-            // we put this tile as the bot's objective
-            //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
-            BotObjective objective{ mission, tile };
-            nearestBot->getBlackboard().insertData(bbn::AGENT_SELF, nearestBot);
-            nearestBot->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
-            nearestBot->getBlackboard().setParentBoard(m_globalBlackboard);
-            nearestBot->act();
         }
     });
 
@@ -469,6 +471,11 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     priorities.emplace(Archetype::SETTLER, 2);
     priorities.emplace(Archetype::TROUBLEMAKER, 2);
 
+    int craftableBots = std::max(0, (int)(blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts));
+
+    LOG("Total bots available : " + std::to_string(craftableBots + availableBots));
+    LOG("Craftable bots this turn : " + std::to_string(craftableBots));
+
     // explore
     // (after all requirements have been fullfilled, remaining bots will be assigned
     // to settlers that target a tile near them)
@@ -477,16 +484,18 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     size_t craftableBots = blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts;
 
     // sustain
-    for(size_t i = 0; i < allyCities.size() && craftableBots > 2; i++) {
+    for(size_t i = 0; i < allyCities.size() && availableBots + craftableBots > 0; i++) {
         auto &cc = allyCities[i];
         SquadRequirement sr{ 1,0,10,Archetype::FARMER, gameState.map.getTileIndex(cc.center_x, cc.center_y) };
-        squadRequirements.emplace_back(sr);
-        availableBots--;
-        craftableBots--;
+        squadRequirements.push_back(sr);
+        if (availableBots > 0)
+            availableBots--;
+        else
+            craftableBots--;
     }
 
     //Retaliation
-    for (size_t i = 0; i < enemyStance.size() && (availableBots > 0 || availableCarts > 0 || craftableBots > 0); i++) {
+    for (size_t i = 0; i < enemyStance.size() && (availableBots + craftableBots > 0 || availableCarts + craftableBots > 0); i++) {
         SquadRequirement sr{};
         const EnemySquadInfo &enemySquad = enemyStance[i];
         switch (enemySquad.mission) {
@@ -498,10 +507,12 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
             sr.mission = Archetype::TROUBLEMAKER;
             auto [targetX, targetY] = enemySquad.path.getRandomValuedPoint();
             sr.missionTarget = gameState.map.getTileIndex(targetX, targetY);
-            squadRequirements.emplace_back(sr);
+            squadRequirements.push_back(sr);
             priorities[Archetype::ROADMAKER] = priorities[Archetype::ROADMAKER]+1;
-            availableBots--;
-            craftableBots--;
+            if (availableBots > 2)
+                availableBots--;
+            else
+                craftableBots--;
 
         } break; // ROADMAKER blocked by TROUBLEMAKER
         //case SETTLER:
@@ -521,8 +532,13 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
             //LOG("Cannot react to enemy squad with type " << (int)enemySquad.mission);
             break;
         }
-        availableBots -= sr.botNb;
-        craftableBots -= sr.botNb;
+        /*for (int i = 0; i < sr.botNb; i++)
+        {
+            if (availableBots > 0)
+                availableBots--;
+            else
+                craftableBots--;
+        }*/
     }
 
     std::ranges::sort(squadRequirements, std::less{}, [](auto &sr) { return sr.priority; });
@@ -550,19 +566,31 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
             bestBots.emplace(bot, botDistanceToMissionTarget);
         }
         Squad nSquad{};
-        for(size_t remainingWorkers = sr.botNb, remainingCarts = sr.cartNb; (remainingWorkers > 0 || remainingCarts > 0) && !bestBots.empty(); ) {
-            Bot *availableBot = bestBots.top().first;
-            bestBots.pop();
-            if(availableBot->getType() == UnitType::CART && remainingCarts > 0) {
-                nSquad.getAgents().push_back(availableBot);
-                unassignedBots.erase(availableBot);
-                remainingCarts--;
-            } else if(availableBot->getType() == UnitType::WORKER && remainingWorkers > 0) {
-                nSquad.getAgents().push_back(availableBot);
-                unassignedBots.erase(availableBot);
-                remainingWorkers--;
-            } else {
-                nSquad.getAgentsToCreate().push_back({ {gameState->map.getTilePosition(sr.missionTarget)}, availableBot->getType()});
+        // if there are only 2 bots left, we save them for farmers / settlers
+        for(size_t remainingWorkers = sr.botNb, remainingCarts = sr.cartNb; (remainingWorkers > 0 || remainingCarts > 0); ) {
+            if (bestBots.size() <= 2ull)
+            {
+                for (int i = 0; i < remainingWorkers; i++)
+                    nSquad.getAgentsToCreate().push_back({ {gameState->map.getTilePosition(sr.missionTarget)}, UnitType::WORKER });
+                for (int i = 0; i < remainingCarts; i++)
+                    nSquad.getAgentsToCreate().push_back({ {gameState->map.getTilePosition(sr.missionTarget)}, UnitType::CART });
+                remainingWorkers = 0;
+                remainingCarts = 0;
+                LOG("reserving needed bots");
+            }
+            else
+            {
+                Bot *availableBot = bestBots.top().first;
+                bestBots.pop();
+                if (availableBot->getType() == UnitType::CART && remainingCarts > 0) {
+                    nSquad.getAgents().push_back(availableBot);
+                    unassignedBots.erase(availableBot);
+                    remainingCarts--;
+                } else if (availableBot->getType() == UnitType::WORKER && remainingWorkers > 0) {
+                    nSquad.getAgents().push_back(availableBot);
+                    unassignedBots.erase(availableBot);
+                    remainingWorkers--;
+                }
             }
         }
         nSquad.setArchetype(sr.mission);
@@ -573,17 +601,25 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
     // assign remaining bots as settlers/farmers
     size_t lateAssign = 0;
     for(Bot *remainingBot : unassignedBots) {
-        lateAssign++;
-        // 1/3 farmers
-        if(lateAssign % 3 == 0) {
-            tileindex_t targetCity = pathing::getBestCityFeedingLocation(remainingBot, gameState);
+        // 1/4 settler
+        if(lateAssign % 4 == 0) {
+            tileindex_t targetCity = pathing::getBestCityBuildingLocation(remainingBot, gameState);
             if(targetCity != (tileindex_t)-1) {
-                newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::FARMER, targetCity);
+                newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, targetCity);
                 continue;
             }
         }
-        // 2/3 settlers
-        newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, pathing::getBestCityBuildingLocation(remainingBot, gameState));
+        // 1/4 citizen
+        if(lateAssign % 4 == 1)
+        {
+            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::SETTLER, pathing::getBestExpansionLocation(remainingBot, gameState));
+            continue;
+        }
+
+        // 2/4 farmer
+        newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
+
+        lateAssign++;
     }
 
     return newSquads;
@@ -591,23 +627,32 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
 
 void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &availableUnits)
 {
-    ranges::for_each(m_agentsToCreate, [&, this, availableUnits, cities](std::pair<std::pair<int, int>, UnitType> bot) {
+    std::vector<std::pair<std::pair<int, int>, UnitType>> notReservedBots{};
+    for (auto bot : m_agentsToCreate) {
         Bot *nearestCity = cities[0];
-        unsigned int nearestDistance = std::numeric_limits<unsigned int>::max();
+        float nearestDistance = std::numeric_limits<unsigned int>::max();
+        bool foundCity = false;
         for (Bot *city : cities) {
             unsigned int botToCityDist = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
             if (botToCityDist < nearestDistance && !city->getReserveState()) {
                 nearestCity = city;
-                nearestDistance = botToCityDist;
+                nearestDistance = abs(bot.first.first - city->getX()) + abs(bot.first.second - city->getY());
+                foundCity = true;
             }
         }
-        if (bot.second == UnitType::WORKER)
-            nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, { BotObjective::ObjectiveType::CREATE_WORKER });
-        else
-            nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, { BotObjective::ObjectiveType::CREATE_CART });
-        nearestCity->reserve();
-        m_agentsInCreation.emplace_back(nearestCity, bot.second);
-    });
+        if (foundCity) {
+            if (bot.second == UnitType::WORKER)
+                nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_WORKER, 0 });
+            else
+                nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_CART, 0 });
+            nearestCity->reserve();
+            m_agentsInCreation.push_back(std::pair<Bot *, UnitType>(nearestCity, bot.second));
+        } else {
+            std::pair<std::pair<int, int>, UnitType> botCopy{ bot };
+            notReservedBots.push_back(botCopy);
+        }
+    };
+    m_agentsToCreate = notReservedBots;
 }
 
 void Squad::addCreatedAgents(const GameStateDiff &diff)
