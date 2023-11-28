@@ -111,7 +111,7 @@ tileindex_t getBestCityBuildingLocation(const Bot *bot, const GameState *gameSta
 tileindex_t getBestExpansionLocation(const Bot* bot, const GameState *gameState)
 {
   InfluenceMap workingMap{ gameState->citiesInfluence };
-  //workingMap.addTemplateAtIndex(map->getTileIndex(*bot), agentTemplate);
+  workingMap.addTemplateAtIndex(gameState->map.getTileIndex(*bot), influence_templates::AGENT_PROXIMITY);
   return static_cast<tileindex_t>(workingMap.getHighestPoint());
 }
 
@@ -133,6 +133,19 @@ tileindex_t getBestCityFeedingLocation(const Bot* bot, const GameState *gameStat
   }
   MULTIBENCHMARK_LAPEND(getBestCityFeedingLocation);
   return bestTile;
+}
+
+tileindex_t getBestBlockingPathLocation(const Bot* bot, const GameState* gameState)
+{
+  // TODO: check if the highestpoint can be ennemy city
+  InfluenceMap workingMap{ gameState->map.getWidth(), gameState->map.getHeight() };
+
+  for (auto const& [_, val] : gameState->ennemyPath)
+    workingMap.addMap(val);
+
+  workingMap.addTemplateAtIndex(gameState->map.getTileIndex(*bot), influence_templates::AGENT_PROXIMITY);
+
+  return workingMap.getHighestPoint();
 }
 
 tileindex_t getBestNightTimeLocation(const Bot *bot, const GameState *gameState, const std::vector<tileindex_t> &occupiedTiles)
@@ -230,6 +243,19 @@ std::vector<tileindex_t> getManyExpansionLocations(const Bot *bot, const GameSta
     workingMap.addTemplateAtIndex(workingMap.getHighestPoint(), influence_templates::RESOURCE_PROXIMITY, 2.0f);
 
     return workingMap.getNHighestPoints(n);
+}
+
+std::vector<tileindex_t> getManyBlockingPathLocations(const Bot* bot, const GameState* gameState, int n)
+{
+  // TODO: check if the highestpoint can be ennemy city
+  InfluenceMap workingMap{ gameState->map.getWidth(), gameState->map.getHeight() };
+
+  for (auto const& [_, val] : gameState->ennemyPath)
+    workingMap.addMap(val);
+
+  workingMap.addTemplateAtIndex(gameState->map.getTileIndex(*bot), influence_templates::AGENT_PROXIMITY);
+
+  return workingMap.getNHighestPoints(n);
 }
 
 }
