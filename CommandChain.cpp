@@ -139,10 +139,14 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
     std::ranges::for_each(availableCities, [&, this](Bot *city) {
         // by default, cities do research. If they have been reserved to create more workers
         // send that order instead
-        BotObjective objective{ BotObjective::ObjectiveType::CREATE_WORKER };
+        BotObjective objective{ BotObjective::ObjectiveType::RESEARCH };
         //BotObjective objective{ BotObjective::ObjectiveType::RESEARCH };
+        if (city->getUnitToCreate() == UnitType::CART)
+            objective.type = BotObjective::ObjectiveType::CREATE_CART;
+        if (city->getUnitToCreate() == UnitType::WORKER)
+            objective.type = BotObjective::ObjectiveType::CREATE_WORKER;
         city->getBlackboard().insertData(bbn::AGENT_SELF, city);
-        if (!city->getReserveState())
+        //if (city->getReserveState())
             city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         city->getBlackboard().setParentBoard(m_globalBlackboard);
         city->act();
@@ -154,17 +158,27 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
     std::ranges::for_each(m_squads, [&, this](Squad &squad)
     {
         int squadSize = static_cast<int>(squad.getAgents().size());
-        if (squadSize > 0 || !squad.getOrderGiven())
+        if (squadSize > 0 && !squad.getOrderGiven())
         {
             std::vector<tileindex_t> targetTiles{};
             BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
             switch (squad.getArchetype()) {
             case Archetype::CITIZEN:
-                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
+
+                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squadSize); 
                 break;
             case Archetype::SETTLER:
                 squad.setOrderGiven(true);
-                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squadSize);
+                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
+                // we change settlers to citizens once they accomplish their goals, so that their city doesn't get destroyed
+                for (auto bot : squad.getAgents())
+                {
+                    if (std::ranges::find(targetTiles, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) != targetTiles.end()) {
+                        LOG("changed on turn " + std::to_string(m_gameState->currentTurn));
+                        squad.setArchetype(Archetype::CITIZEN);
+                        break;
+                    }
+                }
                 break;
             case Archetype::FARMER:
                 mission = BotObjective::ObjectiveType::FEED_CITY;
@@ -178,6 +192,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 break;
             case Archetype::ROADMAKER:
                 mission = BotObjective::ObjectiveType::MAKE_ROAD; // Should only be applied to carts
+                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
                 // Also, we don't have any roadmakers for now...
                 break;
             case Archetype::KILLER:
@@ -212,6 +227,8 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 // we put this tile as the bot's objective
                 //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
                 BotObjective objective{ mission, tile };
+                if (mission == BotObjective::ObjectiveType::MAKE_ROAD)
+                    objective.returnTile = pathing::getBestExpansionLocation(nearestBot, m_gameState);
                 nearestBot->getBlackboard().insertData(bbn::AGENT_SELF, nearestBot);
                 nearestBot->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
                 nearestBot->getBlackboard().setParentBoard(m_globalBlackboard);
@@ -471,6 +488,12 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
 {
     std::vector<SquadRequirement> squadRequirements{};
 
+    for (auto city : gameState.citiesBot)
+    {
+        if (city->getTeam() != Player::ALLY) continue;
+        city->release();
+    }
+
     size_t availableBots = 0;
     size_t availableCarts = 0;
     std::ranges::for_each(gameState.bots, [&availableBots, &availableCarts](const std::unique_ptr<Bot> &bot) {
@@ -492,6 +515,7 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
     priorities.emplace(Archetype::TROUBLEMAKER, 2);
 
     int craftableBots = std::max(0, (int)(blackBoard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT) - availableBots - availableCarts));
+    
 
     // explore
     // (after all requirements have been fullfilled, remaining bots will be assigned
@@ -556,6 +580,19 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
         }*/
     }
 
+    if (craftableBots > 0) {
+        SquadRequirement sr{ 0,1,10,Archetype::ROADMAKER, 0 };
+        squadRequirements.push_back(sr);
+        craftableBots--;
+    }
+    if (craftableBots > 0) {
+        SquadRequirement sr{ 0,1,10,Archetype::ROADMAKER, 0 };
+        squadRequirements.push_back(sr);
+        craftableBots--;
+    }
+
+    LOG(craftableBots);
+
     std::ranges::sort(squadRequirements, std::less{}, [](auto &sr) { return sr.priority; });
     return squadRequirements;
 }
@@ -616,24 +653,36 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
     size_t lateAssign = -1;
     for(Bot *remainingBot : unassignedBots) {
 
+        if (remainingBot->getType() != UnitType::WORKER)
+        {
+            Squad s{};
+            s.getAgents().push_back(remainingBot);
+            s.setArchetype(Archetype::ROADMAKER);
+            newSquads.emplace_back(s);
+            continue;
+        }
+
         lateAssign++;
 
-        // 1/4 settler
-        if(lateAssign % 4 == 0) {
+        // 3/6 citizen
+        if (lateAssign % 6 <= 2) {
+            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::CITIZEN, pathing::getBestExpansionLocation(remainingBot, gameState));
+            continue;
+        }
+        // 1 out of 2/6 farmer
+        if (lateAssign % 6 == 3){
+            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
+            continue;
+        }
+        // 1/6 settler
+        if(lateAssign % 6 == 4) {
             tileindex_t targetCity = pathing::getBestCityBuildingLocation(remainingBot, gameState);
             if(targetCity != (tileindex_t)-1) {
                 newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, targetCity);
                 continue;
             }
         }
-        // 1/4 citizen
-        if(lateAssign % 4 == 1)
-        {
-            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::CITIZEN, pathing::getBestExpansionLocation(remainingBot, gameState));
-            continue;
-        }
-
-        // 2/4 farmer
+        // 2 out of 2/6 farmer
         newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
     }
 
@@ -656,11 +705,11 @@ void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &available
             }
         }
         if (foundCity) {
-            if (bot.second == UnitType::WORKER)
+            /*if (bot.second == UnitType::WORKER)
                 nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_WORKER, 0 });
             else
-                nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_CART, 0 });
-            nearestCity->reserve();
+                nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_CART, 0 });*/
+            nearestCity->reserve(bot.second);
             m_agentsInCreation.emplace_back(nearestCity, bot.second);
         } else {
             notReservedBots.push_back(bot);

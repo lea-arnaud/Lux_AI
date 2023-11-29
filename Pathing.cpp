@@ -207,7 +207,7 @@ std::vector<tileindex_t> getManyResourceFetchingLocations(const Bot *bot, const 
 std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const GameState *gameState, int n)
 {
     static constexpr float DISTANCE_WEIGHT = -1.f;
-    static constexpr float ADJACENT_CITIES_WEIGHT = +0.f;
+    static constexpr float ADJACENT_CITIES_WEIGHT = -0.5f;
     static constexpr float ADJACENT_RESOURCES_WEIGHT = +1.f;
 
     std::vector<std::pair<tileindex_t, float>> tiles{};
@@ -258,7 +258,7 @@ std::vector<tileindex_t> getManyCityBuildingLocations(const Bot *bot, const Game
 
 std::vector<tileindex_t> getManyExpansionLocations(const Bot *bot, const GameState *gameState, int n)
 {
-    static constexpr float DISTANCE_WEIGHT = 1.0f;
+    static constexpr float DISTANCE_WEIGHT = 3.0f;
 
     InfluenceMap workingMap{ gameState->citiesInfluence };
     workingMap.addTemplateAtIndex(workingMap.getIndex(bot->getX(), bot->getY()), influence_templates::AGENT_PROXIMITY, DISTANCE_WEIGHT);

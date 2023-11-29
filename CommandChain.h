@@ -53,6 +53,8 @@ public:
 	void setArchetype(Archetype a) { m_type = a; }
 	tileindex_t getTargetTile() const { return m_targetTile; }
 	void setTargetTile(tileindex_t tile) { m_targetTile = tile; }
+	tileindex_t getReturnTile() const { return m_returnTile; }
+	void setReturnTile(tileindex_t tile) { m_returnTile = tile; }
 
 	void sendReinforcementsRequest(std::vector<Bot *> &cities, int &availableUnits);
 	void addCreatedAgents(const GameStateDiff &diff);
@@ -68,6 +70,8 @@ private:
 	std::vector<std::pair<std::pair<int, int>, UnitType>> m_agentsToCreate{};
 	Archetype m_type;
 	tileindex_t m_targetTile;
+	//ROADMAKER only
+	tileindex_t m_returnTile;
 	bool orderGiven = false;
 };
 

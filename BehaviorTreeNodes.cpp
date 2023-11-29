@@ -35,7 +35,7 @@ std::shared_ptr<Task> testIsAgentFullOfResources()
 std::shared_ptr<Task> testHasTeamEnoughCarts()
 {
   return std::make_shared<Test>([](Blackboard &bb) {
-    return bb.getData<int>(bbn::GLOBAL_AGENTS) >= 1;
+    return false;
   });
 }
 
