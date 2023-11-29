@@ -4,7 +4,7 @@
 
 #include "BehaviorTreeNodes.h"
 #include "Benchmarking.h"
-#include "IAParams.h"
+#include "AIParams.h"
 
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_WORKER = std::make_shared<BasicBehavior>(nodes::behaviorWorker());
 static const std::shared_ptr<BasicBehavior> BEHAVIOR_CART = std::make_shared<BasicBehavior>(nodes::behaviorCart());
