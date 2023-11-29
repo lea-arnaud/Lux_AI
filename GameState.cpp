@@ -45,17 +45,21 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
     });
 }
 
-bool GameState::shouldExpand()
+std::vector<bool> GameState::shouldExpand()
 {
   // TODO: should take the agent into consideration and the ennemy
   constexpr float TOTAL_RESOURCES_PERCENT = 0.75;
 
+  std::vector<bool> citiesExpansion(cities.size(), true);
+
   // calculate the resources needed to survive till the end
   size_t nightDuration = (360 - currentTurn) / 4; // 1/4 tu temps est la nuit
-  float resourceNeededToSurvive = resourcesNeeded * nightDuration;
 
-  if (resourceNeededToSurvive > TOTAL_RESOURCES_PERCENT * (resourcesRemaining + resourcesOwned)) 
-    return false;
+  for (int i = 0; i < cities.size(); ++i) {
+    float resourceNeeded = cities[i]->getLightUpKeep() * nightDuration;
+    if (cities[i]->getTeam() == Player::ENEMY || resourceNeeded > TOTAL_RESOURCES_PERCENT * (resourcesRemaining + cities[i]->getFuel()))
+      citiesExpansion[i] = false;
+  }
 
-  return true;
+  return citiesExpansion;
 }

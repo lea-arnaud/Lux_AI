@@ -119,11 +119,6 @@ namespace kit
                 float fuel = std::stof(updates[i++]);
                 float lightUpkeep = std::stof(updates[i++]);
                 newState.cities.push_back(std::make_unique<City>(cityid, getPlayer(team), fuel, lightUpkeep));
-
-                if (getPlayer(team) == Player::ALLY) {
-                  newState.resourcesNeeded += lightUpkeep;
-                  newState.resourcesOwned += fuel;
-                }
             }
             else if (input_identifier == INPUT_CONSTANTS::CITY_TILES)
             {

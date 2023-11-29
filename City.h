@@ -17,6 +17,9 @@ public:
 	  : m_id{ id }, m_team{ team }, m_fuel{ fuel }, m_lightUpkeep{ lightUpkeep } {}
 
 	const std::string &getId() const { return m_id; }
+	player_t getTeam() const { return m_team; }
+	float getFuel() const { return m_fuel; }
+	float getLightUpKeep() const { return m_lightUpkeep; }
 };
 
 #endif
