@@ -26,28 +26,16 @@ namespace statistics {
 		}
 
 		friend std::ostream& operator<<(std::ostream& os, const TurnStats& ts ) {
-			return os << "Turn " << ts.turnNb << " : " << "P1 => " << ts.p1cities << "; P2 => " << ts.p2cities;
+			return os << "Turn " << ts.turnNb << " : " << "P1 => &" << ts.p1cities << "&; P2 => &" << ts.p2cities << "&";
 		}
 	};
 
 	class GameStats {
-	private:
-		std::string m_fileName;
 	public:
-		GameStats()
-		{
-			auto end = std::chrono::system_clock::now();
-			auto endtxt = std::chrono::system_clock::to_time_t(end);
-			std::string timetxt = std::to_string(endtxt);
-
-			m_fileName = "..\\..\\" + params::statPath;
-			std::ofstream{ m_fileName }; // create or clear the file
-		}
-
 		void printGameStats(const std::shared_ptr<Blackboard> &blackboard) const
 		{
-			std::ofstream file{ m_fileName, std::ios::app };
-			file << "Turn " << TurnStats{ *blackboard } << '\n';
+			std::ofstream file{ "..\\..\\results\\" + params::statPath + ".txt", std::ios::app };
+			file << TurnStats{ *blackboard } << '\n';
 		}
 
 	};
