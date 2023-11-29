@@ -28,50 +28,26 @@ bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, con
 
 tileindex_t getResourceFetchingLocation(const Bot* bot, const GameState *gameState, float distanceWeight)
 {
-  static constexpr float RESOURCE_NB_WEIGHT = +1.f;
+  static constexpr float DISTANCE_WEIGHT = 2.0f;
 
-  const int neededResources = game_rules::WORKER_CARRY_CAPACITY - (bot->getCoalAmount() + bot->getWoodAmount() + bot->getUraniumAmount());
+  InfluenceMap distanceInfluence{ gameState->map.getWidth(), gameState->map.getHeight() };
+  std::ranges::for_each(gameState->citiesBot,
+    [&](const Bot *bot) {
+    tileindex_t index = gameState->map.getTileIndex(bot->getX(), bot->getY());
+    if (bot->getTeam() == Player::ALLY)
+      distanceInfluence.addTemplateAtIndex(index, influence_templates::AGENT_PROXIMITY);
+  });
 
-  const Map *map = &gameState->map;
-  size_t currentResearchPoints = gameState->playerResearchPoints[Player::ALLY];
+  distanceInfluence.addTemplateAtIndex(gameState->map.getTileIndex(*bot), influence_templates::AGENT_PROXIMITY);
 
-  tileindex_t botTile = map->getTileIndex(*bot);
+  InfluenceMap workingMap{ gameState->resourcesInfluence };
+  workingMap.multiplyMap(distanceInfluence, DISTANCE_WEIGHT);
 
-  tileindex_t bestTile = -1;
-  float bestTileScore = std::numeric_limits<float>::lowest();
-  for (tileindex_t i = 0; i < map->getMapSize(); i++) {
-    if(map->tileAt(i).getType() == TileType::ALLY_CITY || map->tileAt(i).getType() == TileType::ENEMY_CITY)
-      continue;
-    int neighborResources = 0;
-    std::vector<tileindex_t> neighbors = map->getValidNeighbours(i, PathFlags::NONE);
-    for (tileindex_t j : neighbors) {
-      if (map->tileAt(j).getType() == TileType::RESOURCE) {
-        switch (map->tileAt(j).getResourceType()) {
-        case kit::ResourceType::wood:
-          neighborResources += std::min((int)game_rules::COLLECT_RATE_WOOD, map->tileAt(j).getResourceAmount());
-          break;
-        case kit::ResourceType::coal:
-          if(currentResearchPoints >= game_rules::MIN_RESEARCH_COAL)
-            neighborResources += std::min((int)game_rules::COLLECT_RATE_COAL, map->tileAt(j).getResourceAmount());
-          break;
-        case kit::ResourceType::uranium:
-          if(currentResearchPoints >= game_rules::MIN_RESEARCH_URANIUM)
-            neighborResources += std::min((int)game_rules::COLLECT_RATE_URANIUM, map->tileAt(j).getResourceAmount());
-          break;
-        }
-      }
-    }
-    if (neighborResources == 0)
-      continue;
-    float tileScore = 
-      RESOURCE_NB_WEIGHT * std::min(neededResources, neighborResources) +
-      distanceWeight * map->distanceBetween(botTile, i);
-    if (bestTileScore < tileScore) {
-      bestTile = i;
-      bestTileScore = tileScore;
-    }
+  for (auto index : workingMap.getNHighestPoints(50)) {
+    if (gameState->map.tileAt(index).getType() == TileType::RESOURCE) return index;
   }
-  return bestTile;
+
+  return 0;
 }
 
 tileindex_t getBestCityBuildingLocation(const tileindex_t botTile, const GameState *gameState)

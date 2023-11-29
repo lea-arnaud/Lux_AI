@@ -156,10 +156,10 @@ constexpr InfluenceTemplate<3, 3> SHAPE_CROSS{ 1, 1, 1.0f,
                                          return distance <= 1 ? influence : 0;
                                        } };
 
-constexpr InfluenceTemplate<9, 9> AGENT_PROXIMITY{ 4, 4, 1.0f,
+constexpr InfluenceTemplate<15, 15> AGENT_PROXIMITY{ 7, 7, 1.0f,
                                        [](float influence, float distance)
                                        {
-                                         return influence * (1 - distance / 8.0f);
+                                         return influence * (1 - distance / 14.0f);
                                        } };
 
 constexpr InfluenceTemplate<5, 5> RESOURCE_PROXIMITY{ 2, 2, 1.0f,
