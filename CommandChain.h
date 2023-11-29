@@ -127,6 +127,8 @@ private:
 	// creates clusters based on distance, does not quite return the cities provided by lux-ai because
 	// two city tiles that are not adjacent but close enough are considered to be in the same cluster
 	std::array<std::vector<CityCluster>, Player::COUNT> getCityClusters(const GameState &gameState);
+	// { Nbr Citizen, Nbr Farmer } 
+	std::pair<int, int> getNbrAgent(const CityCluster &cityCluster) const;
 };
 
 class Commander

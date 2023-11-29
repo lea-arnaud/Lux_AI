@@ -290,6 +290,30 @@ std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(co
     return finalClusters;
 }
 
+std::pair<int, int> Strategy::getNbrAgent(const CityCluster &cityCluster) const
+{
+  constexpr float A = 1.0f;
+  constexpr float B = 1.0f;
+  constexpr float CAP_SECURITE = 10.0f;
+
+  constexpr int LIMITE_MAX_FARMERS = 5;
+  constexpr int LIMITE_MAX_CITIZENS = 10;
+
+  // Itération pour trouver les valeurs optimales
+  for (int nbrFarmer = 1; nbrFarmer <= LIMITE_MAX_FARMERS; ++nbrFarmer) {
+    for (int nbrCitizen = 1; nbrCitizen <= LIMITE_MAX_CITIZENS; ++nbrCitizen) {
+      float expression = A * nbrFarmer + (1 - A) * (cityCluster.cityTileCount + B * nbrCitizen);
+
+      if (expression > CAP_SECURITE) {
+        return std::make_pair(nbrFarmer, nbrCitizen);
+      }
+    }
+  }
+
+  // Return a pair with null value
+  return std::make_pair(0, 0);
+}
+
 std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 {
     std::vector<EnemySquadInfo> enemySquads;
