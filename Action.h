@@ -1,3 +1,5 @@
+// The following code is based on Chris Powell GOAP project avaible here at https://github.com/cpowell/cppGOAP/tree/develop
+
 #include <string>
 #include <unordered_map>
 #include <GameState.h>

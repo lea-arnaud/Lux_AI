@@ -48,25 +48,26 @@ void GameState::computeInfluence(const GameStateDiff &gameStateDiff)
 
 void GameState::setVariable(const int var_id, const bool value)
 {
-    vars_[var_id] = value;
+    vars[var_id] = value;
 }
 
 bool GameState::getVariable(const int var_id) const
 {
-    return vars_.at(var_id);
+    return vars.at(var_id);
 }
 
 
 bool GameState::operator==(const GameState &other) const
 {
-    return (vars_ == other.vars_);
+    return (vars == other.vars);
 }
 
+//Return true if the current GameState meets the requirement for the goal
 bool GameState::meetsGoal(const GameState &goal_state) const
 {
-    for (const auto &kv : goal_state.vars_) {
+    for (const auto &kv : goal_state.vars) {
         try {
-            if (vars_.at(kv.first) != kv.second) {
+            if (vars.at(kv.first) != kv.second) {
                 return false;
             }
         } catch (const std::out_of_range &) {
@@ -76,13 +77,14 @@ bool GameState::meetsGoal(const GameState &goal_state) const
     return true;
 }
 
+//Gives how many variables differ from the current state to an other
 int GameState::distanceTo(const GameState &goal_state) const
 {
     int result = 0;
 
-    for (const auto &kv : goal_state.vars_) {
-        auto itr = vars_.find(kv.first);
-        if (itr == end(vars_) || itr->second != kv.second) {
+    for (const auto &kv : goal_state.vars) {
+        auto itr = vars.find(kv.first);
+        if (itr == end(vars) || itr->second != kv.second) {
             ++result;
         }
     }

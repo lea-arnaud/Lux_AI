@@ -1,15 +1,18 @@
+// The following code is based on Chris Powell GOAP project avaible here at https://github.com/cpowell/cppGOAP/tree/develop
+
 #include "Node.h"
 #include <iostream>
 
-int goap::Node::last_id_ = 0;
-goap::Node::Node() : g_(0), h_(0)
+int goap::Node::last_id = 0;
+
+goap::Node::Node() : g(0), h(0)
 {
-    id_ = ++last_id_;
+    id = ++last_id;
 }
 goap::Node::Node(const GameState state, int g, int h, int parent_id, const Action *action) :
-    gs_(state), g_(g), h_(h), parent_id_(parent_id), action_(action)
+    gs(state), g(g), h(h), parent_id(parent_id), action(action)
 {
-    id_ = ++last_id_;
+    id = ++last_id;
 }
 
 bool goap::operator<(const goap::Node &lhs, const goap::Node &rhs)

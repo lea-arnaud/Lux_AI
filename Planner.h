@@ -1,3 +1,4 @@
+// The following code is based on Chris Powell GOAP project avaible here at https://github.com/cpowell/cppGOAP/tree/develop
 
 #include <vector>
 #include "Action.h"
@@ -13,14 +14,14 @@ namespace goap
 class Planner
 {
 private:
-	std::vector<Node> open_;  
-	std::vector<Node> closed_; 
+	std::vector<Node> open_;  //open list
+	std::vector<Node> closed_; //close list
 
-	bool memberOfClosed(const GameState &gs) const; //Is this GameState a member of the closed list ?
-	std::vector<goap::Node>::iterator memberOfOpen(const GameState &gs); //Is this GameState a member of the opened list ?
-	Node &popAndClose(); // Pops the first Node from the 'open' list, moves it to the 'closed' list
-	void addToOpenList(Node &&); // Moves the given Node into the 'open' list.
-	int calculateHeuristic(const GameState &now, const GameState &gs) const; // Given two worldstates, calculates an estimated distance between the two
+	bool memberOfClosed(const GameState &gs) const; 
+	std::vector<goap::Node>::iterator memberOfOpen(const GameState &gs); 
+	Node &popAndClose();
+	void addToOpenList(Node &&);
+	int calculateHeuristic(const GameState &now, const GameState &gs) const; 
 
 
 public:
