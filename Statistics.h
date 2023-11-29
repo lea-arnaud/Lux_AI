@@ -1,15 +1,11 @@
 #pragma once
-#include <vector>
+
 #include <string>
-#include <stdio.h>
 #include <fstream>
 #include <chrono>
-#include <ctime>
-#include <algorithm>
+
 #include "BehaviorTree.h"
 #include "BehaviorTreeNames.h"
-
-using namespace std;
 
 namespace statistics {
 
@@ -22,45 +18,38 @@ namespace statistics {
 		unsigned int p2resources{};
 		unsigned int p1agents{};
 		unsigned int p2agents{};
-	public:
 
 		explicit TurnStats(Blackboard &blackboard)
 		{
 			turnNb   = static_cast<unsigned int>(blackboard.getData<size_t>(bbn::GLOBAL_TURN));
-			p1cities = static_cast<unsigned int>(blackboard.getData<size_t>(bbn::GLOBAL_FRIENDLY_CITY_COUNT));
-			p2cities = static_cast<unsigned int>(blackboard.getData<size_t>(bbn::GLOBAL_CITY_COUNT) - p1cities);
+			p1cities = static_cast<unsigned int>(blackboard.getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT));
+			p2cities = static_cast<unsigned int>(blackboard.getData<int>(bbn::GLOBAL_CITY_COUNT) - p1cities);
 		}
 
-		friend ostream& operator<<( ostream& os, const TurnStats& ts ) {
+		friend std::ostream& operator<<(std::ostream& os, const TurnStats& ts ) {
 			return os << "Turn " << ts.turnNb << " : " << "P1 => " << ts.p1cities << "; P2 => " << ts.p2cities;
 		}
 	};
 
 	class GameStats {
 	private:
-		string fileName;
-		ofstream file;
+		std::string m_fileName;
 	public:
 		GameStats()
 		{
-			auto end = chrono::system_clock::now();
-			auto endtxt = chrono::system_clock::to_time_t(end);// + string(ctime(&endtxt)));
-			string timetxt = to_string(endtxt);
+			auto end = std::chrono::system_clock::now();
+			auto endtxt = std::chrono::system_clock::to_time_t(end);
+			std::string timetxt = std::to_string(endtxt);
 
-			fileName = "./../../results/" + params::statPath;
+			m_fileName = "..\\..\\" + params::statPath;
+			std::ofstream{ m_fileName }; // create or clear the file
 		}
 
-		void printGameStats(const shared_ptr<Blackboard> &blackboard) {
-
-			file.open("./../../results/" + params::statPath + ".txt", ios::in |ios::out|ios::app);
-
-			size_t turnNb = blackboard->getData<size_t>(bbn::GLOBAL_TURN);
-			int p1cities = blackboard->getData<int>(bbn::GLOBAL_FRIENDLY_CITY_COUNT);
-			int p2cities = blackboard->getData<int>(bbn::GLOBAL_CITY_COUNT) - p1cities;
-
-			file << "Turn " << turnNb << " : " << "P1 => &" << p1cities << "&; P2 => &" << p2cities << "&\n";
-
-			file.close();
+		void printGameStats(const std::shared_ptr<Blackboard> &blackboard) const
+		{
+			std::ofstream file{ m_fileName, std::ios::app };
+			if (!file.good()) std::cerr << "Could not open " << m_fileName << std::endl;
+			file << "Turn " << TurnStats{ *blackboard } << '\n';
 		}
 	};
 
