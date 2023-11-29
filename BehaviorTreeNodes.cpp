@@ -351,25 +351,35 @@ std::shared_ptr<Task> taskMoveToBlockTile() {
 }
 
 std::shared_ptr<Task> taskMoveToCreateRoad() {
-  auto testAgentReachedDestination = [](Blackboard &bb) -> bool {
-    tileindex_t currentTarget = bb.getData<BotObjective&>(bbn::AGENT_OBJECTIVE).targetTile;
-    tileindex_t currentPosition = bb.getData<Map *>(bbn::GLOBAL_MAP)->getTileIndex(*bb.getData<Bot *>(bbn::AGENT_SELF));
-    return currentPosition != currentTarget;
+  auto testAgentIsStillMoving = [](Blackboard &bb) -> bool {
+    return true;
+  };
+
+  auto goalSupplier = [](Blackboard &bb) {
+    bool returning;
+    if (!bb.hasData(bbn::AGENT_ROADMAKER_RETURNING)) {
+      bb.insertData(bbn::AGENT_ROADMAKER_RETURNING, false);
+      returning = false;
+    } else {
+      returning = bb.getData<bool>(bbn::AGENT_ROADMAKER_RETURNING);
+    }
+    auto &objective = bb.getData<BotObjective>(bbn::AGENT_OBJECTIVE);
+    return returning ? objective.returnTile : objective.targetTile;
   };
 
   return std::make_shared<Sequence>(
     taskMoveTo(
-      goalSupplierFromAgentObjective(),
-      testAgentReachedDestination,
+      goalSupplier,
+      testAgentIsStillMoving,
       adaptFlagsSupplier(PathFlags::NONE),
       "make-road-strategy"
     ),
     // when the destination has been reached, we swap the target and return tile
     // that way the bot will go back and forth between those two
-    std::make_shared<SimpleAction>([](Blackboard &bb) {
-      BotObjective &currentObjective = bb.getData<BotObjective&>(bbn::AGENT_OBJECTIVE);
-      std::swap(currentObjective.targetTile, currentObjective.returnTile);
-    })
+    taskLog("reached destination", std::make_shared<SimpleAction>([](Blackboard &bb) {
+      bb.updateData(bbn::AGENT_ROADMAKER_RETURNING, !bb.getData<bool>(bbn::AGENT_ROADMAKER_RETURNING));
+      bb.removeData(bbn::AGENT_PATHFINDING_GOAL);
+    }))
   );
 }
 

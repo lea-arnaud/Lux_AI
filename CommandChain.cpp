@@ -515,6 +515,9 @@ std::pair<int,std::vector<SquadRequirement>> Strategy::adaptToEnemy(const std::v
         }
     }
 
+    // allocate 2 roadmakers if we are far enough in the game
+    // (early making workers is way more important)
+    if(gameState.currentTurn > 100)
     for(int i = 0; i < 2 && craftableBots > 0; i++, craftableBots--) {
         SquadRequirement sr{ 0,1,10,Archetype::ROADMAKER, 0 };
         squadRequirements.push_back(sr);
