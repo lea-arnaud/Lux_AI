@@ -292,22 +292,25 @@ std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(co
     return finalClusters;
 }
 
-std::pair<float, float> Strategy::getNbrAgent(const CityCluster &cityCluster) const
+std::pair<int,int> Strategy::getNbrAgent(const CityCluster &cityCluster, int botsAllowed) const
 {
-  // A > 0
-  constexpr float A = 25.0f;
-  // B < 0
-  constexpr float B = -3.0f;
-  // C > 0
-  constexpr float C = 2.0f;
+  // A > 0, A = apport moyen en ressource d'un farmer par tour
+  constexpr float A = 2.0f;
+  // B < 0, B = apport moyenne en ressource d'une cityTile par tour
+  constexpr float B = -5.75f;
+  // C > 0, C = création moyenne de villes d'un citizen par tour
+  constexpr float C = 0.05f;
   constexpr float CAP_SECURITE = 10.0f;
 
   // Calcul venant du système A * (nbr de FARMER) + B * (nombre de CityTiles + C * (nbr de CITIZEN)) et (nbr de FARMER) + (nbr de CITIZEN) = 1 (résultat normalisé)
 
-  float nC = (1.f - CAP_SECURITE/A + B * cityCluster.cityTileCount / A) * (1.f / (1.f - B * C / A));
-  float nF = 1 - nC;
+  int nC = std::floor((botsAllowed - CAP_SECURITE/A + B * cityCluster.cityTileCount / A) * (1.f / (1.f - B * C / A)));
+  nC = std::max(0, nC);
+  int nF = botsAllowed - nC;
 
-  return std::make_pair(0.6f, 0.4f);
+  LOG("nF = " + std::to_string(nF) + "; nC = " + std::to_string(nC));
+
+  return std::make_pair(nF,nC);
 }
 
 std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
@@ -636,90 +639,85 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
         newSquads.emplace_back(nSquad);
     }
 
-
-
     // assign remaining bots as citizen/farmers
     /*
     size_t nbRemainingBots = unassignedBots.size() + unCreatedBots;
     std::vector<CityCluster> allyClusters = getCityClusters(*gameState)[Player::ALLY];
-    std::vector<std::pair<CityCluster, std::pair<int,int>>> clusterNeeds{};
-    size_t maxTileNumber = 0;
-    for (auto cc : allyClusters)
-    {
-        if (cc.cityTileCount > maxTileNumber)
-            maxTileNumber = cc.cityTileCount;
-    }
-    size_t invTileSum = 0;
-    for (auto cc : allyClusters)
-    {
-        invTileSum += maxTileNumber - cc.cityTileCount;
-    }
-    if (allyClusters.size() <= 1)
-        invTileSum = 1;
-    int attributedBots = 0;
-    for (auto cc : allyClusters)
-    {
-        auto farmerCitizenRatio = getNbrAgent(cc);
-        int nbBotsAllowed = (maxTileNumber - cc.cityTileCount)/invTileSum;
-        attributedBots += farmerCitizenRatio.first * nbBotsAllowed + farmerCitizenRatio.second *nbBotsAllowed;
-        std::pair<int, int> farmersAndCitizens = {farmerCitizenRatio.first * nbBotsAllowed, farmerCitizenRatio.second * nbBotsAllowed};
-        clusterNeeds.push_back({ cc, farmersAndCitizens });
-    }
+    if (allyClusters.size() > 0) {
+        std::vector<std::pair<CityCluster, std::pair<int, int>>> clusterNeeds{};
+        size_t maxTileNumber = 0;
+        size_t minTileNumber = std::numeric_limits<size_t>::max();
+        for (auto cc : allyClusters) {
+            if (cc.cityTileCount > maxTileNumber)
+                maxTileNumber = cc.cityTileCount;
+            if (cc.cityTileCount > minTileNumber)
+                minTileNumber = cc.cityTileCount;
+        }
+        size_t invTileSum = 0;
+        for (auto cc : allyClusters) {
+            invTileSum += maxTileNumber + minTileNumber - cc.cityTileCount;
+        }
+        if (invTileSum <= 0)
+            invTileSum = 1;
+        int attributedBots = 0;
+        for (auto cc : allyClusters) {
+            int nbBotsAllowed = std::max(0, (int)((maxTileNumber + minTileNumber - cc.cityTileCount)*nbRemainingBots/invTileSum));
+            std::pair<int, int> farmersAndCitizens = getNbrAgent(cc, nbBotsAllowed);
+            attributedBots += farmersAndCitizens.first + farmersAndCitizens.second;
+            clusterNeeds.push_back({ cc, farmersAndCitizens });
+        }
 
-    if (attributedBots > nbRemainingBots) LOG("ALED");
+        if (attributedBots > nbRemainingBots) LOG("ALED");
 
-    int index = 0;
-    if (!unassignedBots.empty())
-    for (auto bot : unassignedBots) {
-        while (clusterNeeds[index % clusterNeeds.size()].second.first <= 0 && clusterNeeds[index % clusterNeeds.size()].second.second <= 0) {
-            index++;
-            if (index > 100) break;
+        int index = 0;
+        if (!unassignedBots.empty())
+            for (auto bot : unassignedBots) {
+                while (clusterNeeds[index % clusterNeeds.size()].second.first <= 0 && clusterNeeds[index % clusterNeeds.size()].second.second <= 0) {
+                    index++;
+                    if (index > 100) break;
+                }
+                if (index > 100) break;
+                auto cityC = clusterNeeds[index % clusterNeeds.size()].first;
+                Squad botSquad{};
+                botSquad.getAgents().push_back(bot);
+                if (clusterNeeds[index % clusterNeeds.size()].second.first > 0 && gameState->map.distanceBetween(pathing::getBestCityFeedingLocation(gameState->map.getTileIndex(bot->getX(), bot->getY()), gameState), gameState->map.getTileIndex(bot->getX(), bot->getY()))
+                    < gameState->map.distanceBetween(gameState->map.getTileIndex(cityC.center_x, cityC.center_y), gameState->map.getTileIndex(bot->getX(), bot->getY()))) {
+                    botSquad.setArchetype(Archetype::FARMER);
+                    clusterNeeds[index % clusterNeeds.size()].second.first--;
+                } else {
+                    botSquad.setArchetype(Archetype::CITIZEN);
+                    clusterNeeds[index % clusterNeeds.size()].second.first--;
+                }
+                botSquad.setTargetTile(gameState->map.getTileIndex(cityC.center_x, cityC.center_y));
+                newSquads.emplace_back(botSquad);
+                attributedBots--;
+                index++;
+            }
+        for (auto cityN : clusterNeeds) {
+            for (int nbFarmer = 0; nbFarmer < cityN.second.first; nbFarmer++) {
+                Squad botSquad{};
+                botSquad.setArchetype(Archetype::FARMER);
+                std::pair<int, int> cityCoords = { cityN.first.center_x, cityN.first.center_y };
+                botSquad.getAgentsToCreate().push_back({ cityCoords, UnitType::WORKER });
+                botSquad.setTargetTile(gameState->map.getTileIndex(cityN.first.center_x, cityN.first.center_y));
+                newSquads.emplace_back(botSquad);
+                attributedBots--;
+                unCreatedBots--;
+            }
+            for (int nbCitizen = 0; nbCitizen < cityN.second.second; nbCitizen++) {
+                Squad botSquad{};
+                botSquad.setArchetype(Archetype::CITIZEN);
+                std::pair<int, int> cityCoords = { cityN.first.center_x, cityN.first.center_y };
+                botSquad.getAgentsToCreate().push_back({ cityCoords, UnitType::WORKER });
+                botSquad.setTargetTile(gameState->map.getTileIndex(cityN.first.center_x, cityN.first.center_y));
+                newSquads.emplace_back(botSquad);
+                attributedBots--;
+                unCreatedBots--;
+            }
         }
-        auto cityC = clusterNeeds[index % clusterNeeds.size()].first;
-        Squad botSquad{};
-        botSquad.getAgents().push_back(bot);
-        if (clusterNeeds[index % clusterNeeds.size()].second.first > 0 && gameState->map.distanceBetween(pathing::getBestCityFeedingLocation(gameState->map.getTileIndex(bot->getX(), bot->getY()),gameState), gameState->map.getTileIndex(bot->getX(), bot->getY()))
-            < gameState->map.distanceBetween(gameState->map.getTileIndex(cityC.center_x, cityC.center_y), gameState->map.getTileIndex(bot->getX(), bot->getY())))
-        {
-            botSquad.setArchetype(Archetype::FARMER);
-            clusterNeeds[index % clusterNeeds.size()].second.first--;
-        }
-        else
-        {
-            botSquad.setArchetype(Archetype::CITIZEN);
-            clusterNeeds[index % clusterNeeds.size()].second.first--;
-        }
-        botSquad.setTargetTile(gameState->map.getTileIndex(cityC.center_x, cityC.center_y));
-        newSquads.emplace_back(botSquad);
-        attributedBots--;
-        index++;
-    }
-    for (auto cityN : clusterNeeds)
-    {
-        for (int nbFarmer = 0; nbFarmer < cityN.second.first; nbFarmer++)
-        {
-            Squad botSquad{};
-            botSquad.setArchetype(Archetype::FARMER);
-            std::pair<int,int> cityCoords = { cityN.first.center_x, cityN.first.center_y };
-            botSquad.getAgentsToCreate().push_back({ cityCoords, UnitType::WORKER });
-            botSquad.setTargetTile(gameState->map.getTileIndex(cityN.first.center_x, cityN.first.center_y));
-            newSquads.emplace_back(botSquad);
-            attributedBots--;
-            unCreatedBots--;
-        }
-        for (int nbCitizen = 0; nbCitizen < cityN.second.second; nbCitizen++) {
-            Squad botSquad{};
-            botSquad.setArchetype(Archetype::CITIZEN);
-            std::pair<int, int> cityCoords = { cityN.first.center_x, cityN.first.center_y };
-            botSquad.getAgentsToCreate().push_back({ cityCoords, UnitType::WORKER });
-            botSquad.setTargetTile(gameState->map.getTileIndex(cityN.first.center_x, cityN.first.center_y));
-            newSquads.emplace_back(botSquad);
-            attributedBots--;
-            unCreatedBots--;
-        }
-    }
 
-    if (attributedBots > 0) LOG("Not normal");*/
+        if (attributedBots != 0) LOG("Not normal");
+    }*/
 
     //could be better if we find a way to prioritize the city that needs the most bots
 
