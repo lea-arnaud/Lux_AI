@@ -128,7 +128,7 @@ private:
 	// two city tiles that are not adjacent but close enough are considered to be in the same cluster
 	std::array<std::vector<CityCluster>, Player::COUNT> getCityClusters(const GameState &gameState);
 	// { Nbr Citizen, Nbr Farmer } 
-	std::pair<int, int> getNbrAgent(const CityCluster &cityCluster) const;
+	std::pair<float, float> getNbrAgent(const CityCluster &cityCluster) const;
 };
 
 class Commander
