@@ -11,7 +11,7 @@
 #include "InfluenceMap.h"
 #include "Types.h"
 #include "lux/annotate.hpp"
-#include "IAParams.h"
+#include "AIParams.h"
 #include "BehaviorTreeNames.h"
 #include "Benchmarking.h"
 #include "Statistics.h"

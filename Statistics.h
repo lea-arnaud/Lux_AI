@@ -2,7 +2,6 @@
 
 #include <string>
 #include <fstream>
-#include <chrono>
 
 #include "BehaviorTree.h"
 #include "BehaviorTreeNames.h"
@@ -37,7 +36,6 @@ namespace statistics {
 			std::ofstream file{ "..\\..\\results\\" + params::statPath + ".txt", std::ios::app };
 			file << TurnStats{ *blackboard } << '\n';
 		}
-
 	};
 
 	extern GameStats gameStats;

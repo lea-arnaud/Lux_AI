@@ -1,4 +1,4 @@
-#include "IAParams.h"
+#include "AIParams.h"
 
 #include <string>
 #include <fstream>
@@ -40,7 +40,13 @@ float cityCoverageNeeded = 50.f;
 int pathStep = 5;
 
 // ENABLE/DISABLE TRAINING PROCESSUS
+// training is disabled by default in release mode
+// (a macro wouldn't work as it can be disabled at runtime)
+#ifdef _DEBUG
 bool trainingMode = true;
+#else
+bool trainingMode = false;
+#endif
 
 void updateParams()
 {

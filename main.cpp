@@ -6,7 +6,7 @@
 #include <fstream>
 #include <vector>
 
-#include "IAParams.h"
+#include "AIParams.h"
 #include "Benchmarking.h"
 #include "Log.h"
 #include "lux/annotate.hpp"
