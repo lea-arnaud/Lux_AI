@@ -7,6 +7,7 @@
 #include "Map.h"
 #include "lux\kit.hpp"
 #include "Bot.h"
+#include "GameRules.h"
 
 enum Category { CLOSED = 0, OPEN, UNVISITED };
 
@@ -62,7 +63,7 @@ inline std::vector<tileindex_t> aStar(const Map &map, const Bot &start, tileinde
 		// Otherwise get its outgoing connections.
 		for (tileindex_t neighbourIndex : map.getValidNeighbours(currentIndex, pathFlags)) {
 			// Get the cost estimate for the neighbor.
-			double tentativeG = currentRecord.g + 1 + (Tile::MAX_ROAD - map.tileAt(neighbourIndex).getRoadAmount());
+			double tentativeG = currentRecord.g + 1 + (game_rules::MAX_ROAD - map.tileAt(neighbourIndex).getRoadAmount());
 
 			if (tentativeG <= 25.0f 
 			  && map.tileAt(neighbourIndex).getType() != TileType::ALLY_CITY 

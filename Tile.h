@@ -19,8 +19,6 @@ class Tile
 	int m_resourceNb = 0;
 
 public:
-	static const float MAX_ROAD;
-
 	void setType(TileType type, kit::ResourceType resource = kit::ResourceType::coal) { m_type = type; m_resource = resource; }
 	float getRoadAmount() const { return m_road; }
 	void setRoadAmount(float amount) { m_road = amount; }
