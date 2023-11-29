@@ -26,9 +26,9 @@ bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, con
   return true;
 }
 
-tileindex_t getResourceFetchingLocation(const Bot* bot, const GameState *gameState, float distanceWeight)
+tileindex_t getResourceFetchingLocation(const Bot* bot, GameState *gameState, float distanceWeight)
 {
-  static constexpr float DISTANCE_WEIGHT = 2.0f;
+  static constexpr float DISTANCE_WEIGHT = 0.1f;
 
   InfluenceMap distanceInfluence{ gameState->map.getWidth(), gameState->map.getHeight() };
   std::ranges::for_each(gameState->citiesBot,
@@ -44,7 +44,10 @@ tileindex_t getResourceFetchingLocation(const Bot* bot, const GameState *gameSta
   workingMap.multiplyMap(distanceInfluence, DISTANCE_WEIGHT);
 
   for (auto index : workingMap.getNHighestPoints(50)) {
-    if (gameState->map.tileAt(index).getType() == TileType::RESOURCE) return index;
+      if (gameState->map.tileAt(index).getType() == TileType::RESOURCE) {
+          gameState->resourcesInfluence.addTemplateAtIndex(index, influence_templates::AGENT_PROXIMITY, -0.25f);
+          return index;
+      }
   }
 
   return 0;
@@ -181,7 +184,7 @@ std::vector<tileindex_t> getManyResourceFetchingLocations(const tileindex_t botT
 
 std::vector<tileindex_t> getManyCityBuildingLocations(const tileindex_t botTile, const GameState *gameState, int n)
 {
-    static constexpr float DISTANCE_WEIGHT = -.2f;
+    static constexpr float DISTANCE_WEIGHT = -0.005f;
     static constexpr float ADJACENT_CITIES_WEIGHT = -0.5f;
     static constexpr float ADJACENT_RESOURCES_WEIGHT = +1.f;
 

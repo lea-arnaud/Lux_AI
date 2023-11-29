@@ -295,20 +295,20 @@ std::array<std::vector<CityCluster>, Player::COUNT> Strategy::getCityClusters(co
 std::pair<int,int> Strategy::getNbrAgent(const CityCluster &cityCluster, int botsAllowed) const
 {
   // A > 0, A = apport moyen en ressource d'un farmer par tour
-  constexpr float A = 2.0f;
+  constexpr float A = 3.0f;
   // B < 0, B = apport moyenne en ressource d'une cityTile par tour
   constexpr float B = -5.75f;
   // C > 0, C = création moyenne de villes d'un citizen par tour
   constexpr float C = 0.05f;
   constexpr float CAP_SECURITE = 10.0f;
 
-  // Calcul venant du système A * (nbr de FARMER) + B * (nombre de CityTiles + C * (nbr de CITIZEN)) et (nbr de FARMER) + (nbr de CITIZEN) = 1 (résultat normalisé)
+  // Calcul venant du système A * (nbr de FARMER) + B * (nombre de CityTiles + C * (nbr de CITIZEN)) et (nbr de FARMER) + (nbr de CITIZEN) = botsAllowed
 
   int nC = std::floor((botsAllowed - CAP_SECURITE/A + B * cityCluster.cityTileCount / A) * (1.f / (1.f - B * C / A)));
-  nC = std::max(0, nC);
+  nC = std::max(std::min(botsAllowed,1), nC);
   int nF = botsAllowed - nC;
 
-  LOG("nF = " + std::to_string(nF) + "; nC = " + std::to_string(nC));
+  LOG("botsAllowed = " + std::to_string(botsAllowed) + "; nF = " + std::to_string(nF) + "; nC = " + std::to_string(nC));
 
   return std::make_pair(nF,nC);
 }
@@ -560,6 +560,15 @@ std::pair<int,std::vector<SquadRequirement>> Strategy::adaptToEnemy(const std::v
         }
     }
 
+    for (int i = 0; i < 1 + availableBots + craftableBots/4 && availableBots + craftableBots > 0; i++, true) {
+        SquadRequirement sr{ 1,0,8,Archetype::SETTLER, 0 };
+        squadRequirements.push_back(sr);
+        if (availableBots > 0)
+            availableBots--;
+        else
+            craftableBots--;
+    }
+
     // allocate 2 roadmakers if we are far enough in the game
     // (early making workers is way more important)
     if(gameState.currentTurn > 100)
@@ -640,8 +649,9 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
     }
 
     // assign remaining bots as citizen/farmers
-    /*
+    
     size_t nbRemainingBots = unassignedBots.size() + unCreatedBots;
+    LOG("remainingBots = " + std::to_string(nbRemainingBots));
     std::vector<CityCluster> allyClusters = getCityClusters(*gameState)[Player::ALLY];
     if (allyClusters.size() > 0) {
         std::vector<std::pair<CityCluster, std::pair<int, int>>> clusterNeeds{};
@@ -650,7 +660,7 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
         for (auto cc : allyClusters) {
             if (cc.cityTileCount > maxTileNumber)
                 maxTileNumber = cc.cityTileCount;
-            if (cc.cityTileCount > minTileNumber)
+            if (cc.cityTileCount < minTileNumber)
                 minTileNumber = cc.cityTileCount;
         }
         size_t invTileSum = 0;
@@ -661,6 +671,7 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
             invTileSum = 1;
         int attributedBots = 0;
         for (auto cc : allyClusters) {
+            LOG("calcul nbBots Allowed = (" + std::to_string(maxTileNumber) + " + " + std::to_string(minTileNumber) + " - " + std::to_string(cc.cityTileCount) + ") * " + std::to_string(nbRemainingBots) + " / " + std::to_string(invTileSum));
             int nbBotsAllowed = std::max(0, (int)((maxTileNumber + minTileNumber - cc.cityTileCount)*nbRemainingBots/invTileSum));
             std::pair<int, int> farmersAndCitizens = getNbrAgent(cc, nbBotsAllowed);
             attributedBots += farmersAndCitizens.first + farmersAndCitizens.second;
@@ -670,8 +681,10 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
         if (attributedBots > nbRemainingBots) LOG("ALED");
 
         int index = 0;
-        if (!unassignedBots.empty())
-            for (auto bot : unassignedBots) {
+        auto notAssignedBots{ unassignedBots };
+        if (!notAssignedBots.empty())
+            for (auto bot : notAssignedBots) {
+                if (bot->getType() != UnitType::WORKER) continue;
                 while (clusterNeeds[index % clusterNeeds.size()].second.first <= 0 && clusterNeeds[index % clusterNeeds.size()].second.second <= 0) {
                     index++;
                     if (index > 100) break;
@@ -689,6 +702,7 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
                     clusterNeeds[index % clusterNeeds.size()].second.first--;
                 }
                 botSquad.setTargetTile(gameState->map.getTileIndex(cityC.center_x, cityC.center_y));
+                unassignedBots.erase(bot);
                 newSquads.emplace_back(botSquad);
                 attributedBots--;
                 index++;
@@ -716,8 +730,8 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
             }
         }
 
-        if (attributedBots != 0) LOG("Not normal");
-    }*/
+        if (attributedBots < 0) LOG("Not normal");
+    }
 
     //could be better if we find a way to prioritize the city that needs the most bots
 

@@ -244,7 +244,7 @@ std::shared_ptr<Task> taskMoveTo(
 GoalSupplier adaptGoalSupplier(SimpleGoalSupplier &&simpleSupplier) {
   return [simpleSupplier = std::move(simpleSupplier)](Blackboard &bb) -> tileindex_t {
     const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
-    const GameState *gameState = bb.getData<GameState *>(bbn::GLOBAL_GAME_STATE);
+    GameState *gameState = bb.getData<GameState *>(bbn::GLOBAL_GAME_STATE);
     return simpleSupplier(bot, gameState);
   };
 }
@@ -278,7 +278,7 @@ std::shared_ptr<Task> taskFetchResources(float distanceWeight)
     return map->hasAdjacentResources(goal);
   };
 
-  auto goalFinder = [distanceWeight](const Bot *bot, const GameState *gameState) -> tileindex_t {
+  auto goalFinder = [distanceWeight](const Bot *bot, GameState *gameState) -> tileindex_t {
     return pathing::getResourceFetchingLocation(bot, gameState, distanceWeight);
   };
 
@@ -327,7 +327,7 @@ std::shared_ptr<Task> taskFeedCity()
   };
 
   return std::make_shared<Sequence>(
-    taskFetchResources(-3.f),
+    taskFetchResources(-0.5f),
     taskMoveTo(
       goalSupplierFromAgentObjective(),
       testIsGoalValidFriendlyCityTile,

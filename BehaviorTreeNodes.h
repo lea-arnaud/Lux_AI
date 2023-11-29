@@ -35,7 +35,7 @@ std::function<tileindex_t(Blackboard &bb)> goalSupplierFromAgentObjective();
 // their simpler versions can be used when only some attributes are
 // needed and retrieving those from the blackboard is an unwanted overhead
 using GoalSupplier = std::function<tileindex_t(Blackboard &)>;
-using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, const GameState *)>;
+using SimpleGoalSupplier = std::function<tileindex_t(const Bot *, GameState *)>;
 using PathFlagsSupplier = std::function<pathflags_t(Blackboard &)>;
 using GoalValidityChecker = std::function<bool(Blackboard &)>;
 using SimpleGoalValidityChecker = std::function<bool(const Bot *, const Map *, tileindex_t)>;

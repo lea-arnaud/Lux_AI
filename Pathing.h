@@ -9,7 +9,7 @@ namespace pathing
 {
 
 bool checkPathValidity(const std::vector<tileindex_t> &path, const Map &map, const std::vector<tileindex_t> &botPositions, size_t moveAheadCount);
-tileindex_t getResourceFetchingLocation(const Bot* bot, const GameState *gameState, float distanceWeight=-1.f);
+tileindex_t getResourceFetchingLocation(const Bot* bot, GameState *gameState, float distanceWeight=-1.f);
 tileindex_t getBestCityBuildingLocation(const tileindex_t botTile, const GameState *gameState);
 tileindex_t getBestExpansionLocation(const tileindex_t botTile, const GameState *gameState);
 tileindex_t getBestCityFeedingLocation(const tileindex_t botTile, const GameState *gameState);
