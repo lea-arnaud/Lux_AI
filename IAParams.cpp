@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 
+#include "Log.h"
 #include "Statistics.h"
 
 namespace params
@@ -43,12 +44,11 @@ bool trainingMode = true;
 
 void updateParams()
 {
-    std::ifstream paramFile{};
+    std::ifstream paramFile{ "..\\..\\parametersFile.txt" };
 
-    paramFile.open("parametersFile.txt");
-    std::string text{};
+    std::string text;
 
-    while (std::getline(paramFile, text)) {
+    while (paramFile >> text) {
         if (text.find("pathLength=") != std::string::npos) {
             params::ennemyPathingTurn = std::stoi(text.substr(11));
         }
@@ -74,6 +74,8 @@ void updateParams()
             params::statPath = text.substr(9);
         }
     }
+
+    std::ofstream{ "..\\..\\results\\" + params::statPath + ".txt" }; // create or clear the file
 }
 
 }

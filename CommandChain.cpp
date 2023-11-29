@@ -136,35 +136,36 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         if (squadSize > 0 && !squad.getOrderGiven()) {
             std::vector<tileindex_t> targetTiles{};
             BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
+            tileindex_t firstBotPosition = m_gameState->map.getTileIndex(squad.getAgents()[0]->getX(), squad.getAgents()[0]->getY());
             switch (squad.getArchetype()) {
             case Archetype::CITIZEN:
-                targetTiles = pathing::getManyExpansionLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
+                targetTiles = pathing::getManyExpansionLocations(firstBotPosition, m_gameState, squadSize);
                 break;
             case Archetype::SETTLER:
                 squad.setOrderGiven(true);
-                targetTiles = pathing::getManyCityBuildingLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
+                targetTiles = pathing::getManyCityBuildingLocations(firstBotPosition, m_gameState, squadSize);
                 // we change settlers to citizens once they accomplish their goals, so that their city doesn't get destroyed
-                for (auto bot : squad.getAgents()) {
-                    if (std::ranges::find(targetTiles, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) != targetTiles.end()) {
+                for (auto &bot : squad.getAgents()) {
+                    tileindex_t botTile = m_gameState->map.getTileIndex(bot->getX(), bot->getY());
+                    if (m_gameState->map.tileAt(botTile).getType() == TileType::ALLY_CITY && std::ranges::find(targetTiles, botTile) != targetTiles.end()) {
                         squad.setArchetype(Archetype::CITIZEN);
+                        targetTiles = pathing::getManyExpansionLocations(firstBotPosition, m_gameState, squadSize);
                         break;
                     }
                 }
                 break;
             case Archetype::FARMER:
                 mission = BotObjective::ObjectiveType::FEED_CITY;
-                for (auto bot : squad.getAgents())
+                for (auto &bot : squad.getAgents())
                     targetTiles.push_back(squad.getTargetTile());
-                //targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, agentCount);
                 break;
             case Archetype::TROUBLEMAKER:
-                targetTiles = pathing::getManyBlockingPathLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
+                targetTiles = pathing::getManyBlockingPathLocations(firstBotPosition, m_gameState, squadSize);
                 mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
                 break;
             case Archetype::ROADMAKER:
-                mission = BotObjective::ObjectiveType::MAKE_ROAD; // Should only be applied to carts
-                targetTiles = pathing::getManyCityBuildingLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
-                // Also, we don't have any roadmakers for now...
+                targetTiles = pathing::getManyCityBuildingLocations(firstBotPosition, m_gameState, squadSize);
+                mission = BotObjective::ObjectiveType::MAKE_ROAD; // only applied to carts
                 break;
             case Archetype::KILLER:
                 // TODO implement KILLER squad behavior with GOAP
@@ -222,6 +223,7 @@ bool Commander::shouldUpdateSquads(const GameStateDiff &diff, const std::vector<
     return true;
   // a squad cannot fullfill its objective
   if (std::ranges::any_of(m_squads, [&](auto &squad) -> bool {
+    if (squad.getTargetTile() == (tileindex_t)-1) return true; // a squad could not find a valid objective on the previous turn
     switch(squad.getArchetype()) {
     case Archetype::FARMER:  return m_gameState->map.tileAt(squad.getTargetTile()).getType() != TileType::ALLY_CITY;
     case Archetype::SETTLER: return m_gameState->map.tileAt(squad.getTargetTile()).getType() != TileType::EMPTY;
@@ -727,10 +729,6 @@ void Squad::sendReinforcementsRequest(std::vector<Bot *> &cities, int &available
             }
         }
         if (foundCity) {
-            /*if (bot.second == UnitType::WORKER)
-                nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_WORKER, 0 });
-            else
-                nearestCity->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, BotObjective{ BotObjective::ObjectiveType::CREATE_CART, 0 });*/
             nearestCity->reserve(bot.second);
             m_agentsInCreation.emplace_back(nearestCity, bot.second);
         } else {
