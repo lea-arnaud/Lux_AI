@@ -56,6 +56,8 @@ SET( AIBOT_HEADERS
 	Action.h
 	Node.h
 	Planner.h
+	PlannerWorldState.h
+
 )
 
 SET( AIBOT_SRC 
@@ -77,6 +79,7 @@ SET( AIBOT_SRC
 	Action.cpp
 	Node.cpp
 	Planner.cpp
+	PlannerWorldState.cpp
 )
 
 SET(jobfiles "${AIBOT_HEADERS};${AIBOT_SRC};${AIBOT_BUILDFILES}")
