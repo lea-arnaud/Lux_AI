@@ -16,7 +16,7 @@ int main()
 {
     if (params::trainingMode)
         params::updateParams();
-    std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
+    //std::cerr << "WITH INITIAL TIMEOUT" << std::endl; std::this_thread::sleep_for(std::chrono::seconds(8)); // uncomment to get enough time to attach debugger
 
     statistics::GameStats{};
 
@@ -33,6 +33,8 @@ int main()
     std::string benchmarkFile = "..\\..\\benchmark" + std::to_string(agent.getId()) + ".txt";
     std::ofstream{ benchmarkFile };
     #endif
+    
+    params::trainingMode &= agent.getId() == 0; // do not report training data while being player 2 (player 1 reports for both)
 
     try {
         while (true)

@@ -43,7 +43,7 @@ void updateParams()
 {
     std::ifstream paramFile{};
 
-    paramFile.open("./../../parametersFile.txt");
+    paramFile.open("parametersFile.txt");
     std::string text{};
 
     while (std::getline(paramFile, text)) {

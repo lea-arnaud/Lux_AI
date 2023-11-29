@@ -95,7 +95,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
     }
 
     //For each squad...
-    ranges::for_each(m_squads, [&diff,&friendlyCities,&availableUnits](Squad &squad) {
+    std::ranges::for_each(m_squads, [&diff,&friendlyCities,&availableUnits](Squad &squad) {
         //Seek created bots that were demanded
         for (std::pair<Bot*, UnitType> cityProd : squad.getAgentsInCreation()) {
             if (cityProd.first->getActedState()) {
