@@ -7,18 +7,18 @@ using namespace goap;
 
 
 // Return true if the current GameState is in the closed list
-bool goap::Planner::memberOfClosed(const GameState &gs) const
+bool goap::Planner::memberOfClosed(const PlannerWorldState &ws) const
 {
-    if (std::find_if(begin(closed_), end(closed_), [&](const Node &n) { return n.gs == gs; }) == end(closed_)) {
+    if (std::find_if(begin(closed_), end(closed_), [&](const Node &n) { return n.ws == ws; }) == end(closed_)) {
        return false;
     }
     return true;
 }
 
 // Return a pointer to the node of the open list if found
-std::vector<goap::Node>::iterator goap::Planner::memberOfOpen(const GameState &gs)
+std::vector<goap::Node>::iterator goap::Planner::memberOfOpen(const PlannerWorldState &ws)
 {
-    return std::find_if(begin(open_), end(open_), [&](const Node &n) { return n.gs == gs; });
+    return std::find_if(begin(open_), end(open_), [&](const Node &n) { return n.ws == ws; });
 }
 
 //Take the first node frome the open list and moves it to the closed one
@@ -41,14 +41,14 @@ void goap::Planner::addToOpenList(Node&& n)
 }
 
 //Calculate the distance between to given GameState
-int goap::Planner::calculateHeuristic(const GameState & now, const GameState & goal) const
+int goap::Planner::calculateHeuristic(const PlannerWorldState & now, const PlannerWorldState & goal) const
 {
     return now.distanceTo(goal);
 }
 
 //Return the list of action (/!\in reverse order) found by the planner
 //Throw an exception if no plan could be made with the given actions
-std::vector<Action> goap::Planner::plan(const GameState &start, const GameState &goal, const std::vector<Action> &actions)
+std::vector<Action> goap::Planner::plan(const PlannerWorldState &start, const PlannerWorldState &goal, const std::vector<Action> &actions)
 {
 
     if (start.meetsGoal(goal)) {
@@ -70,7 +70,7 @@ std::vector<Action> goap::Planner::plan(const GameState &start, const GameState 
         Node &current(popAndClose());
 
         // Is our current state the goal state? If so, we've found a path, yay.
-        if (current.gs.meetsGoal(goal)) {
+        if (current.ws.meetsGoal(goal)) {
             std::vector<Action> the_plan;
             do {
                 the_plan.push_back(*current.action);
@@ -85,8 +85,8 @@ std::vector<Action> goap::Planner::plan(const GameState &start, const GameState 
 
         // Check each node reachable from current
         for (const auto &potential_action : actions) {
-            if (potential_action.canRun(current.gs)) {
-                GameState outcome = potential_action.run(current.gs);
+            if (potential_action.canRun(current.ws)) {
+                PlannerWorldState outcome = potential_action.run(current.ws);
 
                 // Skip if already closed
                 if (memberOfClosed(outcome)) {

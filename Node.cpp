@@ -9,8 +9,8 @@ goap::Node::Node() : g(0), h(0)
 {
     id = ++last_id;
 }
-goap::Node::Node(const GameState state, int g, int h, int parent_id, const Action *action) :
-    gs(state), g(g), h(h), parent_id(parent_id), action(action)
+goap::Node::Node(const PlannerWorldState state, int g, int h, int parent_id, const Action *action) :
+    ws(state), g(g), h(h), parent_id(parent_id), action(action)
 {
     id = ++last_id;
 }

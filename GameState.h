@@ -35,16 +35,6 @@ struct GameState
   std::optional<const Bot*> getEntityAt(int x, int y) const;
   void computeInfluence(const GameStateDiff &gameStateDiff);
 
-  // For GOAP planner
-
-  float priority; // useful if this is a goal state, to distinguish from other possible goals
-  std::map<int, bool> vars; // the variables that in aggregate describe a worldstate for the planner
-
-  void setVariable(const int var_id, const bool value);
-  bool getVariable(const int var_id) const;
-  bool meetsGoal(const GameState &goal_state) const;
-  int distanceTo(const GameState &goal_state) const;
-  bool operator==(const GameState &other) const;
 };
 
 #endif

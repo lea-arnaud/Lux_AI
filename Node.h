@@ -1,5 +1,5 @@
 // The following code is based on Chris Powell GOAP project avaible here at https://github.com/cpowell/cppGOAP/tree/develop
-#include <GameState.h>
+#include <PlannerWorldState.h>
 #include <Action.h>
 
 #ifndef NODE_H
@@ -11,7 +11,7 @@ struct Node
 {
     static int last_id; // a static that lets us assign incrementing, unique IDs to nodes
 
-    GameState gs;      // The state of the world at this node.
+    PlannerWorldState ws;      // The state of the world at this node.
     int id;             // the unique ID of this node
     int parent_id;      // the ID of this node's immediate predecessor
     int g;              // The A* cost from 'start' to 'here'
@@ -20,7 +20,7 @@ struct Node
 
 
     Node();
-    Node(const GameState state, int g, int h, int parent_id, const Action *action);
+    Node(const PlannerWorldState state, int g, int h, int parent_id, const Action *action);
 
     int f() const
     {

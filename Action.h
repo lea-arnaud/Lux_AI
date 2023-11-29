@@ -2,7 +2,7 @@
 
 #include <string>
 #include <unordered_map>
-#include <GameState.h>
+#include <PlannerWorldState.h>
 
 #ifndef ACTION_H
 #define ACTION_H
@@ -21,8 +21,8 @@ public:
     Action();
     Action(std::string name, int cost);
 
-    bool canRun(const GameState& gameState) const;
-    GameState run(const GameState& gameState) const;
+    bool canRun(const PlannerWorldState & gameState) const;
+    PlannerWorldState run(const PlannerWorldState & gameState) const;
 
     void setPrecondition(const int key, const bool value)
     {
