@@ -1,11 +1,12 @@
-pathLength=75
+pathLength=20
 
-similarityPercentage=40
+similarityPercentage=80
 similarityTolerance=3
+propagationRadius=2
 
-resourceCoverage=1
-cityCoverage=50
+resourceTiles=2
+cityTiles=2
 
-pathStep=3
+pathStep=5
 
-fileName=pL_Tests_13_1000
+fileName=pL_Tests_1_1

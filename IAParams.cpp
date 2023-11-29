@@ -37,7 +37,7 @@ float cityCoverageNeeded = 50.f;
 int pathStep = 5;
 
 // ENABLE/DISABLE TRAINING PROCESSUS
-bool trainingMode = false;
+bool trainingMode = true;
 
 void updateParams()
 {
@@ -56,11 +56,14 @@ void updateParams()
         if (text.find("similarityTolerance=") != std::string::npos) {
             params::similarityTolerance = std::stof(text.substr(20));
         }
-        if (text.find("resourceCoverage=") != std::string::npos) {
-            params::resourceCoverageNeeded = std::stof(text.substr(17));
+        if (text.find("propagationRadius=") != std::string::npos) {
+            params::propagationRadius = std::stoi(text.substr(18));
         }
-        if (text.find("cityCoverage=") != std::string::npos) {
-            params::cityCoverageNeeded = std::stof(text.substr(13));
+        if (text.find("resourceTiles=") != std::string::npos) {
+            params::resourceTilesNeeded = std::stoi(text.substr(14));
+        }
+        if (text.find("cityTiles=") != std::string::npos) {
+            params::cityTilesNeeded = std::stoi(text.substr(10));
         }
         if (text.find("pathStep=") != std::string::npos) {
             params::pathStep = std::stoi(text.substr(9));

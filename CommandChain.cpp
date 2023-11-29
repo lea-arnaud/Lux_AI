@@ -165,11 +165,11 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
             switch (squad.getArchetype()) {
             case Archetype::CITIZEN:
 
-                targetTiles = pathing::getManyExpansionLocations(squad.getAgents()[0], m_gameState, squadSize); 
+                targetTiles = pathing::getManyExpansionLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
                 break;
             case Archetype::SETTLER:
                 squad.setOrderGiven(true);
-                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
+                targetTiles = pathing::getManyCityBuildingLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
                 // we change settlers to citizens once they accomplish their goals, so that their city doesn't get destroyed
                 for (auto bot : squad.getAgents())
                 {
@@ -187,12 +187,12 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 //targetTiles = pathing::getManyResourceFetchingLocations(squad.getAgents()[0], m_gameState, agentCount);
                 break;
             case Archetype::TROUBLEMAKER:
-                targetTiles = pathing::getManyBlockingPathLocations(squad.getAgents()[0], m_gameState, squadSize);
+                targetTiles = pathing::getManyBlockingPathLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
                 mission = BotObjective::ObjectiveType::GO_BLOCK_PATH;
                 break;
             case Archetype::ROADMAKER:
                 mission = BotObjective::ObjectiveType::MAKE_ROAD; // Should only be applied to carts
-                targetTiles = pathing::getManyCityBuildingLocations(squad.getAgents()[0], m_gameState, squadSize);
+                targetTiles = pathing::getManyCityBuildingLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
                 // Also, we don't have any roadmakers for now...
                 break;
             case Archetype::KILLER:
@@ -228,7 +228,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
                 BotObjective objective{ mission, tile };
                 if (mission == BotObjective::ObjectiveType::MAKE_ROAD)
-                    objective.returnTile = pathing::getBestExpansionLocation(nearestBot, m_gameState);
+                    objective.returnTile = pathing::getBestExpansionLocation(m_gameState->map.getTileIndex(nearestBot->getX(), nearestBot->getY()), m_gameState);
                 nearestBot->getBlackboard().insertData(bbn::AGENT_SELF, nearestBot);
                 nearestBot->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
                 nearestBot->getBlackboard().setParentBoard(m_globalBlackboard);
@@ -484,7 +484,7 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
     return enemySquads;
 }
 
-std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard)
+std::pair<int,std::vector<SquadRequirement>> Strategy::adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard)
 {
     std::vector<SquadRequirement> squadRequirements{};
 
@@ -591,17 +591,17 @@ std::vector<SquadRequirement> Strategy::adaptToEnemy(const std::vector<EnemySqua
         craftableBots--;
     }
 
-    LOG(craftableBots);
-
     std::ranges::sort(squadRequirements, std::less{}, [](auto &sr) { return sr.priority; });
-    return squadRequirements;
+    return { craftableBots, squadRequirements };
 }
 
 
-std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &squadRequirements, GameState *gameState)
+std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<SquadRequirement>> &squadRequirementsData, GameState *gameState)
 {
     std::vector<Squad> newSquads;
     std::unordered_set<Bot *> unassignedBots;
+    int unCreatedBots = squadRequirementsData.first;
+    std::vector<SquadRequirement> squadRequirements = squadRequirementsData.second;
 
     for(auto &bot : gameState->bots) {
       if (bot->getTeam() != Player::ALLY || (bot->getType() == UnitType::CITY))
@@ -666,24 +666,78 @@ std::vector<Squad> Strategy::createSquads(const std::vector<SquadRequirement> &s
 
         // 3/6 citizen
         if (lateAssign % 6 <= 2) {
-            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::CITIZEN, pathing::getBestExpansionLocation(remainingBot, gameState));
+            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::CITIZEN, pathing::getBestExpansionLocation(gameState->map.getTileIndex(remainingBot->getX(), remainingBot->getY()), gameState));
             continue;
         }
         // 1 out of 2/6 farmer
         if (lateAssign % 6 == 3){
-            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
+            newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(gameState->map.getTileIndex(remainingBot->getX(), remainingBot->getY()), gameState));
             continue;
         }
         // 1/6 settler
         if(lateAssign % 6 == 4) {
-            tileindex_t targetCity = pathing::getBestCityBuildingLocation(remainingBot, gameState);
+            tileindex_t targetCity = pathing::getBestCityBuildingLocation(gameState->map.getTileIndex(remainingBot->getX(), remainingBot->getY()), gameState);
             if(targetCity != (tileindex_t)-1) {
                 newSquads.emplace_back(std::vector<Bot*>{ remainingBot }, Archetype::SETTLER, targetCity);
                 continue;
             }
         }
         // 2 out of 2/6 farmer
-        newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(remainingBot, gameState));
+        newSquads.emplace_back(std::vector<Bot *>{ remainingBot }, Archetype::FARMER, pathing::getBestCityFeedingLocation(gameState->map.getTileIndex(remainingBot->getX(), remainingBot->getY()), gameState));
+    }
+
+    for (int i = 0; i < unCreatedBots; i++) {
+
+        Squad squadToBe{};
+
+        lateAssign++;
+
+        tileindex_t weakestCityTile{};
+        tileindex_t strongestCityTile{};
+        float minCityScore = std::numeric_limits<float>::max();
+        float maxCityScore = std::numeric_limits<float>::min();
+        auto cities = getCityClusters(*gameState)[Player::ALLY];
+        for (auto city : cities) {
+            if (minCityScore > city.cityTileCount)
+            {
+                minCityScore = city.cityTileCount;
+                weakestCityTile = gameState->map.getTileIndex(city.center_x, city.center_y);
+            }
+            if(maxCityScore < city.cityTileCount)
+            {
+                maxCityScore = city.cityTileCount;
+                strongestCityTile = gameState->map.getTileIndex(city.center_x, city.center_y);
+            }
+        }
+
+        // 3/6 citizen
+        if (lateAssign % 6 <= 2) {
+            std::pair<std::pair<int, int>, UnitType> newBot{ gameState->map.getTilePosition(pathing::getBestExpansionLocation(weakestCityTile, gameState)), UnitType::WORKER };
+            squadToBe.getAgentsToCreate().emplace_back(newBot);
+            newSquads.emplace_back(squadToBe);
+            continue;
+        }
+        // 1 out of 2/6 farmer
+        if (lateAssign % 6 == 3) {
+            std::pair<std::pair<int, int>, UnitType> newBot{ gameState->map.getTilePosition(pathing::getBestCityFeedingLocation(strongestCityTile, gameState)), UnitType::WORKER };
+            squadToBe.getAgentsToCreate().emplace_back(newBot);
+            newSquads.emplace_back(squadToBe);
+            continue;
+        }
+        // 1/6 settler
+        if (lateAssign % 6 == 4) {
+            tileindex_t targetCity = pathing::getBestCityBuildingLocation(strongestCityTile, gameState);
+            if (targetCity != (tileindex_t)-1) {
+                std::pair<std::pair<int, int>, UnitType> newBot{ gameState->map.getTilePosition(targetCity), UnitType::WORKER };
+                squadToBe.getAgentsToCreate().emplace_back(newBot);
+                newSquads.emplace_back(squadToBe);
+                continue;
+            }
+        }
+        // 2 out of 2/6 farmer
+        std::pair<std::pair<int, int>, UnitType> newBot{ gameState->map.getTilePosition(pathing::getBestCityFeedingLocation(strongestCityTile, gameState)), UnitType::WORKER };
+        squadToBe.getAgentsToCreate().emplace_back(newBot);
+        newSquads.emplace_back(squadToBe);
     }
 
     return newSquads;
@@ -732,3 +786,4 @@ void Squad::addCreatedAgents(const GameStateDiff &diff)
         }
     }
 }
+

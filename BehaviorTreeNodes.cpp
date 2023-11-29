@@ -383,7 +383,7 @@ std::shared_ptr<Task> taskMoveToBestTileAtNight() {
     const Bot *bot = bb.getData<Bot *>(bbn::AGENT_SELF);
     const GameState *gameState = bb.getData<GameState *>(bbn::GLOBAL_GAME_STATE);
     const std::vector<tileindex_t> *occupiedTiles = bb.getData<std::vector<tileindex_t>*>(bbn::GLOBAL_NONCITY_POSITION);
-    return pathing::getBestNightTimeLocation(bot, gameState, *occupiedTiles);
+    return pathing::getBestNightTimeLocation(gameState->map.getTileIndex(bot->getX(), bot->getY()), gameState, *occupiedTiles);
   };
 
   PathFlagsSupplier flagsSupplier = [](Blackboard &bb) -> pathflags_t {

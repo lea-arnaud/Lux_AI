@@ -119,8 +119,8 @@ public:
 	Strategy() = default;
 
 	std::vector<EnemySquadInfo> getEnemyStance(const GameState &gameState);
-	std::vector<SquadRequirement> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard);
-	std::vector<Squad> createSquads(const std::vector<SquadRequirement> &squadRequirements, GameState* gameState);
+	std::pair<int, std::vector<SquadRequirement>> adaptToEnemy(const std::vector<EnemySquadInfo> &enemyStance, const GameState &gameState, std::shared_ptr<Blackboard> blackBoard);
+	std::vector<Squad> createSquads(const std::pair<int, std::vector<SquadRequirement>> &squadRequirements, GameState* gameState);
 
 private:
 	// creates clusters based on distance, does not quite return the cities provided by lux-ai because
