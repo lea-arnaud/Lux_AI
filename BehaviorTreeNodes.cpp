@@ -140,7 +140,7 @@ std::shared_ptr<Task> taskMoveTo(
       MULTIBENCHMARK_LAPEND(Astar);
 
       if (path.empty()) {
-        // TODO relax constraints and find another path
+        // FUTURE relax constraints and find another path
         //LOG(bot->getId() << ": could not find a valid path to its target tile " << map->getTilePosition(goalIndex) << " from " << bot->getX() << "," << bot->getY());
         return TaskResult::FAILURE; // probably due to the goal not being valid/reachable
       }

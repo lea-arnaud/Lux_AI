@@ -7,7 +7,6 @@
 #include "GameRules.h"
 #include "Log.h"
 #include "InfluenceMap.h"
-#include "lux/annotate.hpp"
 
 namespace pathing
 {
@@ -113,7 +112,7 @@ tileindex_t getBestExpansionLocation(const tileindex_t botTile, const GameState 
 {
   InfluenceMap workingMap{ gameState->citiesInfluence };
   workingMap.addTemplateAtIndex(botTile, influence_templates::AGENT_PROXIMITY);
-  return static_cast<tileindex_t>(workingMap.getHighestPoint());
+  return workingMap.getHighestPoint();
 }
 
 tileindex_t getBestCityFeedingLocation(const tileindex_t botTile, const GameState *gameState)
@@ -206,7 +205,7 @@ std::vector<tileindex_t> getManyResourceFetchingLocations(const tileindex_t botT
 
 std::vector<tileindex_t> getManyCityBuildingLocations(const tileindex_t botTile, const GameState *gameState, int n)
 {
-    static constexpr float DISTANCE_WEIGHT = -1.f;
+    static constexpr float DISTANCE_WEIGHT = -.2f;
     static constexpr float ADJACENT_CITIES_WEIGHT = -0.5f;
     static constexpr float ADJACENT_RESOURCES_WEIGHT = +1.f;
 
@@ -214,46 +213,34 @@ std::vector<tileindex_t> getManyCityBuildingLocations(const tileindex_t botTile,
     const Map *map = &gameState->map;
     for (tileindex_t i = 0; i < map->getMapSize(); i++) {
         if (map->tileAt(i).getType() != TileType::EMPTY) continue;
-        std::pair<int, int> coords = map->getTilePosition(i);
         size_t neighborCities = 0;
         float resourceScore = 0.f;
-        std::vector<tileindex_t> neighbors = map->getValidNeighbours(i, 0);
+        std::vector<tileindex_t> neighbors = map->getValidNeighbours(i, PathFlags::NONE);
         for (tileindex_t j : neighbors) {
-            if (map->tileAt(j).getType() == TileType::ALLY_CITY)
+            if (map->tileAt(j).getType() == TileType::ALLY_CITY) {
                 neighborCities++;
-            if (map->tileAt(j).getType() == TileType::RESOURCE)
-            {
+            } else if (map->tileAt(j).getType() == TileType::RESOURCE) {
                 kit::ResourceType rt = map->tileAt(j).getResourceType();
-                float rs = static_cast<float>(map->tileAt(j).getResourceAmount());
+                float rs = 1;
                 switch (rt) {
-                case kit::ResourceType::wood:
-                    rs *= game_rules::FUEL_VALUE_WOOD;
-                    break;
-                case kit::ResourceType::coal:
-                    rs *= gameState->playerResearchPoints[Player::ALLY] > 50 ? game_rules::FUEL_VALUE_COAL : 0;
-                    break;
-                case kit::ResourceType::uranium:
-                    rs *= gameState->playerResearchPoints[Player::ALLY] > 200 ? game_rules::FUEL_VALUE_URANIUM : 0;
-                    break;
-                default:
-                    break;
+                case kit::ResourceType::wood:    rs *= 1; break;
+                case kit::ResourceType::coal:    rs *= gameState->playerResearchPoints[Player::ALLY] >= game_rules::MIN_RESEARCH_COAL    ? 2 : 0; break;
+                case kit::ResourceType::uranium: rs *= gameState->playerResearchPoints[Player::ALLY] >= game_rules::MIN_RESEARCH_URANIUM ? 3 : 0; break;
                 }
-                resourceScore += rs;
+                resourceScore = std::max(resourceScore, rs);
             }
         }
-        auto botCoords = gameState->map.getTilePosition(botTile);
         float tileScore =
             ADJACENT_CITIES_WEIGHT * neighborCities +
-            DISTANCE_WEIGHT * (abs(botCoords.first - coords.first) + abs(botCoords.second - coords.second)) +
+            DISTANCE_WEIGHT * gameState->map.distanceBetween(botTile, i) +
             ADJACENT_RESOURCES_WEIGHT * resourceScore;
-        tiles.push_back(std::pair<tileindex_t, float>(i, tileScore));
+        tiles.emplace_back(i, tileScore);
     }
-    std::ranges::sort(tiles, [](std::pair<tileindex_t, float> p1, std::pair<tileindex_t, float> p2) {return p1.second > p2.second; });
-    std::vector<tileindex_t> bestTiles{};
-    for (int i = 0; i < n; i++)
-    {
-        bestTiles.push_back(tiles[i].first);
-    }
+    std::ranges::sort(tiles, [](auto &p1, auto &p2) { return p1.second > p2.second; });
+
+    std::vector<tileindex_t> bestTiles;
+    bestTiles.reserve(n);
+    std::transform(tiles.begin(), tiles.begin() + std::min(tiles.size(), static_cast<size_t>(n)), std::back_inserter(bestTiles), [](auto &t) { return t.first; });
     return bestTiles;
 }
 

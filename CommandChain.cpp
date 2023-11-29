@@ -113,29 +113,6 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         squad.sendReinforcementsRequest(friendlyCities, availableUnits);
     });
 
-#ifdef _DEBUG
-    int citizens = 0, killers = 0, settlers = 0, troublemakers = 0, farmers = 0, roadmakers = 0;
-
-    for (size_t i = 0; i < m_squads.size(); i++) {
-        switch (m_squads[i].getArchetype()) {
-        case Archetype::CITIZEN: citizens++; break;
-        case Archetype::KILLER: killers++; break;
-        case Archetype::SETTLER: settlers++; break;
-        case Archetype::TROUBLEMAKER: troublemakers++; break;
-        case Archetype::FARMER: farmers++; break;
-        case Archetype::ROADMAKER: roadmakers++; break;
-        default: break;
-        }
-    }
-
-    lux::Annotate::sidetext("nb of ally SETTLER : " + std::to_string(settlers));
-    lux::Annotate::sidetext("nb of ally CITIZEN : " + std::to_string(citizens));
-    lux::Annotate::sidetext("nb of ally FARMER : " + std::to_string(farmers));
-    lux::Annotate::sidetext("nb of ally KILLER : " + std::to_string(killers));
-    lux::Annotate::sidetext("nb of ally TROUBLEMAKER : " + std::to_string(troublemakers));
-    lux::Annotate::sidetext("nb of ally ROADMAKER : " + std::to_string(roadmakers));
-#endif
-
     std::ranges::for_each(availableCities, [&, this](Bot *city) {
         // by default, cities do research. If they have been reserved to create more workers
         // send that order instead
@@ -146,8 +123,7 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
         if (city->getUnitToCreate() == UnitType::WORKER)
             objective.type = BotObjective::ObjectiveType::CREATE_WORKER;
         city->getBlackboard().insertData(bbn::AGENT_SELF, city);
-        //if (city->getReserveState())
-            city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
+        city->getBlackboard().insertData(bbn::AGENT_OBJECTIVE, objective);
         city->getBlackboard().setParentBoard(m_globalBlackboard);
         city->act();
     });
@@ -155,26 +131,21 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
     if (params::trainingMode)
         statistics::gameStats.printGameStats(m_globalBlackboard);
 
-    std::ranges::for_each(m_squads, [&, this](Squad &squad)
-    {
+    std::ranges::for_each(m_squads, [&, this](Squad &squad) {
         int squadSize = static_cast<int>(squad.getAgents().size());
-        if (squadSize > 0 && !squad.getOrderGiven())
-        {
+        if (squadSize > 0 && !squad.getOrderGiven()) {
             std::vector<tileindex_t> targetTiles{};
             BotObjective::ObjectiveType mission = BotObjective::ObjectiveType::BUILD_CITY;
             switch (squad.getArchetype()) {
             case Archetype::CITIZEN:
-
                 targetTiles = pathing::getManyExpansionLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
                 break;
             case Archetype::SETTLER:
                 squad.setOrderGiven(true);
                 targetTiles = pathing::getManyCityBuildingLocations(m_gameState->map.getTileIndex((squad.getAgents()[0])->getX(), (squad.getAgents())[0]->getY()), m_gameState, squadSize);
                 // we change settlers to citizens once they accomplish their goals, so that their city doesn't get destroyed
-                for (auto bot : squad.getAgents())
-                {
+                for (auto bot : squad.getAgents()) {
                     if (std::ranges::find(targetTiles, m_gameState->map.getTileIndex(bot->getX(), bot->getY())) != targetTiles.end()) {
-                        LOG("changed on turn " + std::to_string(m_gameState->currentTurn));
                         squad.setArchetype(Archetype::CITIZEN);
                         break;
                     }
@@ -199,8 +170,6 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 // TODO implement KILLER squad behavior with GOAP
                 break;
             }
-            // TODO rework this code, it is prone to logic errors, as we imperatively need as much target tiles as bots in the squad
-            // otherwise, some bots WON'T EVER MOVE
 
             std::unordered_set<Bot *> playableBots{ squad.getAgents().begin(), squad.getAgents().end() };
 
@@ -225,7 +194,6 @@ std::vector<TurnOrder> Commander::getTurnOrders(const GameStateDiff &diff)
                 if (nearestBot->getCooldown() >= game_rules::MAX_ACT_COOLDOWN)
                     continue;
                 // we put this tile as the bot's objective
-                //lux::Annotate::sidetext(nearestBot->getId() + " has objective " + std::to_string((int)mission) + " at tile " + std::to_string(m_gameState->map.getTilePosition(tile).first) + ";" + std::to_string(m_gameState->map.getTilePosition(tile).second));
                 BotObjective objective{ mission, tile };
                 if (mission == BotObjective::ObjectiveType::MAKE_ROAD)
                     objective.returnTile = pathing::getBestExpansionLocation(m_gameState->map.getTileIndex(nearestBot->getX(), nearestBot->getY()), m_gameState);
@@ -326,8 +294,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 {
     std::vector<EnemySquadInfo> enemySquads;
 
-    //LOG("Turn " + std::to_string(gameState.currentTurn));
-
     auto cityClusters = getCityClusters(gameState);
 
     { // remove small enemy clusters (ongoing expansions)
@@ -389,13 +355,13 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         
       // guess the squad's current objective
 
-      // if bot's path covers a resource point... TODO might need to propagate resourceInfluence
+      // if bot's path covers a resource point...
       if (propagatedPath.coversTiles(propagatedInfluence, params::resourceTilesNeeded))
       {
           // enemyCities is an InfluenceMap created to facilitate operations with path
           InfluenceMap enemyCities{gameState.citiesInfluence.getWidth(), gameState.citiesInfluence.getHeight()};
           bool coversACity = false;
-          for (int i = 0; i < cityClusters[Player::ENEMY].size(); i++){
+          for (size_t i = 0; i < cityClusters[Player::ENEMY].size(); i++){
               InfluenceMap ccMap{ gameState.citiesInfluence.getWidth(), gameState.citiesInfluence.getHeight() };
               ccMap.addTemplateAtIndex(ccMap.getIndex(cityClusters[Player::ENEMY][i].center_x, cityClusters[Player::ENEMY][i].center_y), influence_templates::ENEMY_CITY_CLUSTER_PROXIMITY);
               if (propagatedPath.coversTiles(ccMap, params::cityTilesNeeded)) {
@@ -431,9 +397,8 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
         // we seek if a city is targeted
         for (CityCluster cc : cityClusters[0])
         {
-            // TODO we may wanna create a specific parameter for the length of this path
-            if (gameState.ennemyPath.at(bot->getId()).approachesPoint(cc.center_x, cc.center_y, params::ennemyPathingTurn, params::pathStep))
-            {
+            // FUTURE we may wanna create a specific parameter for the length of this path
+            if (gameState.ennemyPath.at(bot->getId()).approachesPoint(cc.center_x, cc.center_y, params::ennemyPathingTurn, params::pathStep)) {
                 movingTowardsAllyCity = true;
                 targetedCity = cc;
                 break;
@@ -457,29 +422,6 @@ std::vector<EnemySquadInfo> Strategy::getEnemyStance(const GameState &gameState)
 
       enemySquads.push_back(enemySquadInfo);
     }
-
-#ifdef _DEBUG
-    int citizens = 0, killers = 0, settlers = 0, troublemakers = 0, farmers = 0, roadmakers = 0;
-
-    for (size_t i = 0; i < enemySquads.size(); i++) {
-        switch (enemySquads[i].mission) {
-        case Archetype::CITIZEN: citizens++; break;
-        case Archetype::KILLER: killers++; break;
-        case Archetype::SETTLER: settlers++; break;
-        case Archetype::TROUBLEMAKER: troublemakers++; break;
-        case Archetype::FARMER: farmers++; break;
-        case Archetype::ROADMAKER: roadmakers++; break;
-        default: break;
-        }
-    }
-
-    /*lux::Annotate::sidetext("nb of SETTLER : " + std::to_string(settlers));
-    lux::Annotate::sidetext("nb of CITIZEN : " + std::to_string(citizens));
-    lux::Annotate::sidetext("nb of FARMER : " + std::to_string(farmers));
-    lux::Annotate::sidetext("nb of KILLER : " + std::to_string(killers));
-    lux::Annotate::sidetext("nb of TROUBLEMAKER : " + std::to_string(troublemakers));
-    lux::Annotate::sidetext("nb of ROADMAKER : " + std::to_string(roadmakers));*/
-#endif
 
     return enemySquads;
 }
@@ -571,21 +513,9 @@ std::pair<int,std::vector<SquadRequirement>> Strategy::adaptToEnemy(const std::v
             //LOG("Cannot react to enemy squad with type " << (int)enemySquad.mission);
             break;
         }
-        /*for (int i = 0; i < sr.botNb; i++)
-        {
-            if (availableBots > 0)
-                availableBots--;
-            else
-                craftableBots--;
-        }*/
     }
 
-    if (craftableBots > 0) {
-        SquadRequirement sr{ 0,1,10,Archetype::ROADMAKER, 0 };
-        squadRequirements.push_back(sr);
-        craftableBots--;
-    }
-    if (craftableBots > 0) {
+    for(int i = 0; i < 2 && craftableBots > 0; i++, craftableBots--) {
         SquadRequirement sr{ 0,1,10,Archetype::ROADMAKER, 0 };
         squadRequirements.push_back(sr);
         craftableBots--;

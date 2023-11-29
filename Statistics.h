@@ -9,7 +9,6 @@
 
 namespace statistics {
 
-
 	struct TurnStats {
 		unsigned int p1cities;
 		unsigned int p2cities;
@@ -48,10 +47,10 @@ namespace statistics {
 		void printGameStats(const std::shared_ptr<Blackboard> &blackboard) const
 		{
 			std::ofstream file{ m_fileName, std::ios::app };
-			if (!file.good()) std::cerr << "Could not open " << m_fileName << std::endl;
 			file << "Turn " << TurnStats{ *blackboard } << '\n';
 		}
+
 	};
 
-	static GameStats gameStats{};
+	extern GameStats gameStats;
 }

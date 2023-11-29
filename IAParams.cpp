@@ -1,7 +1,9 @@
 #include "IAParams.h"
+
 #include <string>
-#include <stdio.h>
 #include <fstream>
+
+#include "Statistics.h"
 
 namespace params
 {
@@ -75,3 +77,5 @@ void updateParams()
 }
 
 }
+
+statistics::GameStats statistics::gameStats{};

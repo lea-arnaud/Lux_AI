@@ -62,7 +62,9 @@ namespace kit
                 newState.map.tileAt(x, y).setType(TileType::RESOURCE, resourceType);
                 newState.resourcesIndex.push_back(newState.map.getTileIndex(x, y));
 
-                // TODO: maybe take into account the ResearchPoint
+                // here we don't care about our current research points because if a resource
+                // is not unlocked yet it is not a bad idea to continue expansion until it is.
+                // (resourcesRemaining is only used to dictate when to stop expanding)
                 switch (resourceType) {
                 case kit::ResourceType::wood: 
                   newState.resourcesRemaining += amt * game_rules::FUEL_VALUE_WOOD; break;
