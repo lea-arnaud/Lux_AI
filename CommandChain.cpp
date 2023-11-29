@@ -600,9 +600,20 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
 {
     std::vector<Squad> newSquads;
     std::unordered_set<Bot *> unassignedBots;
-    int unCreatedBots = squadRequirementsData.first;
-    std::vector<SquadRequirement> squadRequirements = squadRequirementsData.second;
+    auto &[unCreatedBots, squadRequirements] = squadRequirementsData;
 
+    // count required bots per mission archetype
+    // note that some bots will be left without assignment after all squads requirements
+    // have been fullfilled, these bots will become citizen,farmers&settlers so the
+    // totalPerArchetype table will underestimate the number of bots for these three types
+    auto archetypeIndex = [](Archetype archetype) -> size_t { return static_cast<size_t>(archetype); };
+    std::array<size_t, archetypeIndex(Archetype::__COUNT)> totalPerArchetype;
+    for(auto &requirement : squadRequirements) {
+      totalPerArchetype[archetypeIndex(requirement.mission)] += requirement.botNb;
+      totalPerArchetype[archetypeIndex(requirement.mission)] += requirement.cartNb;
+    }
+
+    // collect workers/carts that can be assigned
     for(auto &bot : gameState->bots) {
       if (bot->getTeam() != Player::ALLY || (bot->getType() == UnitType::CITY))
         continue;
@@ -695,17 +706,17 @@ std::vector<Squad> Strategy::createSquads(const std::pair<int, std::vector<Squad
         tileindex_t weakestCityTile{};
         tileindex_t strongestCityTile{};
         float minCityScore = std::numeric_limits<float>::max();
-        float maxCityScore = std::numeric_limits<float>::min();
+        float maxCityScore = std::numeric_limits<float>::lowest();
         auto cities = getCityClusters(*gameState)[Player::ALLY];
         for (auto city : cities) {
             if (minCityScore > city.cityTileCount)
             {
-                minCityScore = city.cityTileCount;
+                minCityScore = static_cast<float>(city.cityTileCount);
                 weakestCityTile = gameState->map.getTileIndex(city.center_x, city.center_y);
             }
             if(maxCityScore < city.cityTileCount)
             {
-                maxCityScore = city.cityTileCount;
+                maxCityScore = static_cast<float>(city.cityTileCount);
                 strongestCityTile = gameState->map.getTileIndex(city.center_x, city.center_y);
             }
         }

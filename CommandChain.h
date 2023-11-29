@@ -35,7 +35,8 @@ enum class Archetype
 	FARMER, //collects resources to bring to cities
 	ROADMAKER, //creates roads
 	TROUBLEMAKER, //destroys and/or blocks roads
-	KILLER //besieges units and/or cities
+	KILLER, //besieges units and/or cities
+	__COUNT,
 };
 
 class Squad

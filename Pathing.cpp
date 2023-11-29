@@ -224,7 +224,7 @@ std::vector<tileindex_t> getManyCityBuildingLocations(const tileindex_t botTile,
             if (map->tileAt(j).getType() == TileType::RESOURCE)
             {
                 kit::ResourceType rt = map->tileAt(j).getResourceType();
-                float rs = map->tileAt(j).getResourceAmount();
+                float rs = static_cast<float>(map->tileAt(j).getResourceAmount());
                 switch (rt) {
                 case kit::ResourceType::wood:
                     rs *= game_rules::FUEL_VALUE_WOOD;
